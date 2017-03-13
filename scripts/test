@@ -1,1 +1,0 @@
-stack build --test --test-arguments "${FASTLY_TOKEN} ${FASTLY_SERVICE_ID}"

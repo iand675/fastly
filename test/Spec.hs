@@ -1,45 +1,40 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+import Test.Hspec
+
+import Data.Either
 import qualified Network.Fastly as F
 import qualified System.Environment as Env
-import Data.List (intercalate)
 import qualified Data.Text as T
-import qualified Data.Text.IO as T
 
 surrogateKey = F.SurrogateKey "example/1"
 
-testGetService token serviceId = do
+testServiceResult token serviceId = do
   r <- F.fastly token (\client -> F.getService client serviceId)
-  case r of
-    Left err ->
-      T.putStrLn (T.intercalate " " ["Error: ", T.pack (show err)])
-    Right service ->
-      T.putStrLn (T.intercalate " " ["Service name: ", F.serviceName service])
+  putStrLn $ "\ngetService: " ++ show r ++ "\n"
+  return r
 
-testPurgeKey token serviceId = do
+testPurgeKeyResult token serviceId = do
   r <- F.fastly token (\client -> F.purgeKey client F.Instant serviceId surrogateKey)
-  case r of
-    Left err ->
-      T.putStrLn (T.intercalate " " ["Error: ", T.pack (show err)])
-    Right purgeResult ->
-      putStrLn $ intercalate " " ["purgeResult: ", (show purgeResult)]
-{-
-purgeKey :: FastlyClient
-         -> PurgeMode
-         -> ServiceId
-         -> SurrogateKey
-         -> FastlyM PurgeResult
--}
+  putStrLn $ "\npurgeKey: " ++ show r ++ "\n"
+  return r
+
+purgeOk (Right (F.PurgeResult {F.purgeResultStatus = "ok", F.purgeResultId = _})) = True
+purgeOk _ = False
 
 tests token serviceId = do
-  testGetService token serviceId
-  testPurgeKey token serviceId
+  getServiceResult <- testServiceResult token serviceId
+  purgeKeyResult <- testPurgeKeyResult token serviceId
+  hspec $ do
+    describe "getService" $ do
+      it "is okay" $ do
+        getServiceResult `shouldSatisfy` isRight
+    describe "purgeKey" $ do
+      it "is okay" $ do
+        purgeKeyResult `shouldSatisfy` purgeOk
 
 main :: IO ()
 main = do
-  args <- Env.getArgs
-  case args of
-    [token, serviceId] -> tests (T.pack token) (F.ServiceId (T.pack serviceId))
-    _                  -> do
-      progName <- Env.getProgName
-      putStrLn ("usage: " ++ progName ++ " <token> <serviceId>")
+  token <- Env.getEnv "FASTLY_TOKEN"
+  serviceId <- Env.getEnv "FASTLY_SERVICE_ID"
+  tests (T.pack token) (F.ServiceId (T.pack serviceId))
