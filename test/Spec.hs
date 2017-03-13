@@ -9,29 +9,41 @@ import qualified Data.Text as T
 
 surrogateKey = F.SurrogateKey "example/1"
 
-testServiceResult token serviceId = do
+testService token serviceId = do
   r <- F.fastly token (\client -> F.getService client serviceId)
   putStrLn $ "\ngetService: " ++ show r ++ "\n"
   return r
 
-testPurgeKeyResult token serviceId = do
+testPurgeKey token serviceId = do
   r <- F.fastly token (\client -> F.purgeKey client F.Instant serviceId surrogateKey)
   putStrLn $ "\npurgeKey: " ++ show r ++ "\n"
   return r
 
-purgeOk (Right (F.PurgeResult {F.purgeResultStatus = "ok", F.purgeResultId = _})) = True
-purgeOk _ = False
+testPurgeAll token serviceId = do
+  r <- F.fastly token $ \client -> F.purgeAll client serviceId
+  putStrLn $ "\npurgeAll: " ++ show r ++ "\n"
+  return r
+
+purgeKeyOk (Right (F.PurgeResult {F.purgeResultStatus = "ok", F.purgeResultId = _})) = True
+purgeKeyOk _ = False
+
+purgeAllOk (Right (F.PurgeAllResult {F.purgeAllResultStatus = "ok"})) = True
+purgeAllOk _ = False
 
 tests token serviceId = do
-  getServiceResult <- testServiceResult token serviceId
-  purgeKeyResult <- testPurgeKeyResult token serviceId
+  getServiceResult <- testService token serviceId
+  purgeKeyResult <- testPurgeKey token serviceId
+  purgeAllResult <- testPurgeAll token serviceId
   hspec $ do
     describe "getService" $ do
       it "is okay" $ do
         getServiceResult `shouldSatisfy` isRight
     describe "purgeKey" $ do
       it "is okay" $ do
-        purgeKeyResult `shouldSatisfy` purgeOk
+        purgeKeyResult `shouldSatisfy` purgeKeyOk
+    describe "purgeAll" $ do
+      it "is okay" $ do
+        purgeAllResult `shouldSatisfy` purgeAllOk
 
 main :: IO ()
 main = do
