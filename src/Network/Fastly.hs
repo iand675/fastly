@@ -162,6 +162,7 @@ module Network.Fastly
     -}
       -- Purging
     , PurgeMode(..)
+    , SurrogateKey(..)
     , purge
     , purgeKey
     , purgeAll

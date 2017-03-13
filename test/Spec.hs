@@ -2,8 +2,11 @@
 
 import qualified Network.Fastly as F
 import qualified System.Environment as Env
+import Data.List (intercalate)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
+
+surrogateKey = F.SurrogateKey "example/1"
 
 testGetService token serviceId = do
   r <- F.fastly token (\client -> F.getService client serviceId)
@@ -13,8 +16,24 @@ testGetService token serviceId = do
     Right service ->
       T.putStrLn (T.intercalate " " ["Service name: ", F.serviceName service])
 
+testPurgeKey token serviceId = do
+  r <- F.fastly token (\client -> F.purgeKey client F.Instant serviceId surrogateKey)
+  case r of
+    Left err ->
+      T.putStrLn (T.intercalate " " ["Error: ", T.pack (show err)])
+    Right purgeResult ->
+      putStrLn $ intercalate " " ["purgeResult: ", (show purgeResult)]
+{-
+purgeKey :: FastlyClient
+         -> PurgeMode
+         -> ServiceId
+         -> SurrogateKey
+         -> FastlyM PurgeResult
+-}
+
 tests token serviceId = do
   testGetService token serviceId
+  testPurgeKey token serviceId
 
 main :: IO ()
 main = do
