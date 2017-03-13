@@ -1,12 +1,14 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Network.Fastly
     ( FastlyAuth(..)
     , Username(..)
     , Password(..)
     , FastlyClient
     , fastlyClient
+    , fastly
     , FastlyResponse(..)
       -- Account
     {-
@@ -112,6 +114,8 @@ module Network.Fastly
     , getServiceDetails
     , getServiceByName
     , getService
+    , ServiceId(..)
+    , Service(..)
     {-
     , createService
     , deleteService
