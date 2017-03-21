@@ -244,7 +244,7 @@ data FastlyAuth = AuthToken Text
 
 fastlyClient :: FastlyAuth -> IO FastlyClient
 fastlyClient (AuthToken t) = do
-  m <- newManager tlsManagerSettings
+  m <- getGlobalManager
   return $ FastlyClient m (fastlyRootRequest { requestHeaders = ("Fastly-Key", encodeUtf8 t) :
                                                                 ("Accept", "application/json") :
                                                                 requestHeaders fastlyRootRequest })
@@ -824,9 +824,9 @@ data PurgeMode = Instant
                | Soft
 
 data PurgeResult = PurgeResult
-                   { purgeResultStatus :: Text
-                   , purgeResultId     :: Text
-                   } deriving (Show, Generic)
+  { purgeResultStatus :: Text
+  , purgeResultId     :: Text
+  } deriving (Show, Generic)
 
 instance ToJSON PurgeResult where
   toJSON = genericToJSON (jsonOpts 11)
