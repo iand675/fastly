@@ -28,7 +28,8 @@ library
                        bytestring-lexing,
                        mtl,
                        thyme,
-                       old-locale
+                       old-locale,
+                       wai
   default-language:    Haskell2010
 
 test-suite fastly-test

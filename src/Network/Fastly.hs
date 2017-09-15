@@ -196,7 +196,8 @@ import Data.Thyme.Clock (UTCTime)
 import Data.Thyme.Format
 import Data.HashMap.Strict (HashMap)
 import GHC.Generics
-import Network.HTTP.Client
+import Network.HTTP.Client as C
+import qualified Network.HTTP.Client
 import Network.HTTP.Client.TLS
 import Network.HTTP.Types
 import System.IO.Unsafe
@@ -209,8 +210,7 @@ data FastlyResponse a = FastlyResponse
                         } deriving (Show)
 
 data FastlyClient = FastlyClient
-  { fastlyClientManager       :: Manager
-  , fastlyClientBaseRequest   :: Request
+  { fastlyClientBaseRequest   :: Request
   }
 
 data FastlyError = InvalidOrMissingRateLimitData
@@ -233,8 +233,7 @@ readFromResponse r f = do
       return (readDecimal_ remBs, readDecimal_ resBs)
 
 fastlyRootRequest :: Request
-fastlyRootRequest = unsafePerformIO $ parseUrl "https://api.fastly.com/"
-{-# NOINLINE fastlyRootRequest #-}
+fastlyRootRequest = parseRequest_ "https://api.fastly.com/"
 
 newtype Username = Username Text
 newtype Password = Password Text
@@ -244,10 +243,13 @@ data FastlyAuth = AuthToken Text
 
 fastlyClient :: FastlyAuth -> IO FastlyClient
 fastlyClient (AuthToken t) = do
-  m <- getGlobalManager
-  return $ FastlyClient m (fastlyRootRequest { requestHeaders = ("Fastly-Key", encodeUtf8 t) :
-                                                                ("Accept", "application/json") :
-                                                                requestHeaders fastlyRootRequest })
+  return $
+    FastlyClient
+      (fastlyRootRequest
+       { requestHeaders =
+           ("Fastly-Key", encodeUtf8 t) :
+           ("Accept", "application/json") : requestHeaders fastlyRootRequest
+       })
 fastlyClient (Login (Username u) (Password p)) = do
   error "Login not supported yet"
   {-
@@ -271,39 +273,44 @@ fastly t f = do
 
 
 jsonOpts :: Int -> Options
-jsonOpts x = defaultOptions { fieldLabelModifier = camelTo '_' . drop x }
+jsonOpts x = defaultOptions { fieldLabelModifier = camelTo2 '_' . drop x }
 
 get :: FromJSON a => FastlyClient -> (Request -> Request) -> FastlyM a
 get c f = ExceptT $ do
-  r <- httpLbs ((f $ fastlyClientBaseRequest c) { method = "GET" }) (fastlyClientManager c)
+  m <- getGlobalManager
+  r <- httpLbs ((f $ fastlyClientBaseRequest c) { method = "GET" }) m
   return $ case eitherDecode $ responseBody r of
              Left e -> Left $ JsonError e
              Right r -> Right r
 
 post :: FromJSON a => FastlyClient -> (Request -> Request) -> FastlyM a
 post c f = ExceptT $ do
-  r <- httpLbs ((f $ fastlyClientBaseRequest c) { method = "POST" }) (fastlyClientManager c)
+  m <- getGlobalManager
+  r <- httpLbs ((f $ fastlyClientBaseRequest c) { method = "POST" }) m
   return $ case eitherDecode $ responseBody r of
              Left e -> Left $ JsonError e
              Right r -> Right r
 
 put :: FromJSON a => FastlyClient -> (Request -> Request) -> FastlyM a
 put c f = ExceptT $ do
-  r <- httpLbs ((f $ fastlyClientBaseRequest c) { method = "PUT" }) (fastlyClientManager c)
+  m <- getGlobalManager
+  r <- httpLbs ((f $ fastlyClientBaseRequest c) { method = "PUT" }) m
   return $ case eitherDecode $ responseBody r of
              Left e -> Left $ JsonError e
              Right r -> Right r
 
 delete :: FromJSON a => FastlyClient -> (Request -> Request) -> FastlyM a
 delete c f = ExceptT $ do
-  r <- httpLbs ((f $ fastlyClientBaseRequest c) { method = "DELETE" }) (fastlyClientManager c)
+  m <- getGlobalManager
+  r <- httpLbs ((f $ fastlyClientBaseRequest c) { method = "DELETE" }) m
   return $ case eitherDecode $ responseBody r of
              Left e -> Left $ JsonError e
              Right r -> Right r
 
 patch :: FromJSON a => FastlyClient -> (Request -> Request) -> FastlyM a
 patch c f = ExceptT $ do
-  r <- httpLbs ((f $ fastlyClientBaseRequest c) { method = "PATCH" }) (fastlyClientManager c)
+  m <- getGlobalManager
+  r <- httpLbs ((f $ fastlyClientBaseRequest c) { method = "PATCH" }) m
   return $ case eitherDecode $ responseBody r of
              Left e -> Left $ JsonError e
              Right r -> Right r
@@ -839,13 +846,14 @@ purge :: FastlyClient
       -> String -- ^ URL
       -> FastlyM PurgeResult
 purge c mode url = ExceptT $ do
-  case parseUrl url of
+  m <- getGlobalManager
+  case parseRequest url of
     Left str -> return $ Left $ InvalidUrl $ show str
     Right req -> do
       let f r = case mode of
             Instant -> r
             Soft -> (r { requestHeaders = ("Fastly-Soft-Purge", "1") : requestHeaders r})
-      r <- httpLbs ((f req) { method = "PURGE" }) (fastlyClientManager c)
+      r <- httpLbs ((f req) { method = "PURGE" }) m
       return $ case eitherDecode $ responseBody r of
                 Left e -> Left $ JsonError e
                 Right r -> Right r
@@ -858,6 +866,7 @@ purgeKey :: FastlyClient
          -> SurrogateKey
          -> FastlyM PurgeResult
 purgeKey c mode (ServiceId sid) (SurrogateKey skey) = ExceptT $ do
+  m <- getGlobalManager
   let baseReq = fastlyClientBaseRequest c
       req = baseReq { method = "POST"
                     , path = "/service/" <> encodeUtf8 sid <> "/purge/" <> encodeUtf8 skey
@@ -865,7 +874,7 @@ purgeKey c mode (ServiceId sid) (SurrogateKey skey) = ExceptT $ do
                         Instant -> requestHeaders baseReq
                         Soft -> ("Fastly-Soft-Purge", "1") : requestHeaders baseReq
                     }
-  r <- httpLbs req (fastlyClientManager c)
+  r <- httpLbs req m
   return $ case eitherDecode $ responseBody r of
     Left e -> Left $ JsonError e
     Right r -> Right r
@@ -884,10 +893,11 @@ purgeAll :: FastlyClient
          -> ServiceId
          -> FastlyM PurgeAllResult
 purgeAll c (ServiceId sid) = ExceptT $ do
+  m <- getGlobalManager
   let req = (fastlyClientBaseRequest c) { method = "POST"
                                         , path = "/service/" <> encodeUtf8 sid <> "/purge_all"
                                         }
-  r <- httpLbs req (fastlyClientManager c)
+  r <- httpLbs req m
   return $ case eitherDecode $ responseBody r of
     Left e -> Left $ JsonError e
     Right r -> Right r
@@ -954,5 +964,13 @@ instance FromJSON Addresses where
     return $ Addresses $ map read r
 
 
-publicIpList :: FastlyClient -> FastlyM Addresses
-publicIpList c = get c (\r -> r { path = "/public-ip-list"})
+publicIpList :: FastlyM Addresses
+publicIpList = ExceptT $ do
+  m <- getGlobalManager
+  r <- httpLbs req m
+  return $
+    case eitherDecode $ responseBody r of
+      Left e -> Left $ JsonError e
+      Right r -> Right r
+  where
+    (Just req) = C.parseRequest "https://api.fastly.com/public-ip-list"
