@@ -181,6 +181,7 @@ module Network.Fastly
     , Addresses(..)
     ) where
 import Control.Applicative
+import Control.Exception
 import Control.Monad.Except
 import Data.Aeson
 import Data.Aeson.Types
@@ -216,7 +217,9 @@ data FastlyClient = FastlyClient
 data FastlyError = InvalidOrMissingRateLimitData
                  | JsonError String
                  | InvalidUrl String
-                 deriving (Show)
+                 deriving (Show, Eq)
+
+instance Exception FastlyError
 
 readFromResponse :: Response a -> (Response a -> Either FastlyError b) -> Either FastlyError (FastlyResponse b)
 readFromResponse r f = do
