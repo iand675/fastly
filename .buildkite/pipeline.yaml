@@ -1,4 +1,6 @@
 steps:
-  - command: "stack build"
+  - command: "stack build --test --no-run-tests"
+  - wait
   - command: "stack test"
+  - wait
   - command: "stack haddock"
