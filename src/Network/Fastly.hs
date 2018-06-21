@@ -2,6 +2,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
+{- |
+
+Highly unstable implementation of the Fastly API. Contributions are welcome.
+
+'purge', 'purgeKey', and 'purgeAll' are reasonably well tested.
+
+-}
 module Network.Fastly
     ( FastlyAuth(..)
     , Username(..)

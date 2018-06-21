@@ -1,13 +1,13 @@
 name:                fastly
 version:             0.1.0.0
-synopsis:            Initial project template from stack
+synopsis:            A highly experimental Fastly API client.
 description:         Please see README.md
-homepage:            https://github.com/githubuser/fastly#readme
+homepage:            https://github.com/iand675/fastly#readme
 license:             BSD3
 license-file:        LICENSE
-author:              Author name here
-maintainer:          example@example.com
-copyright:           2016 Author name here
+author:              Ian Duncan
+maintainer:          ian@iankduncan.com
+copyright:           2018 Ian Duncan
 category:            Web
 build-type:          Simple
 -- extra-source-files:
@@ -45,4 +45,4 @@ test-suite fastly-test
 
 source-repository head
   type:     git
-  location: https://github.com/githubuser/fastly
+  location: https://github.com/iand675/fastly
