@@ -1,0 +1,4 @@
+steps:
+  - command: "stack build"
+  - command: "stack test"
+  - command: "stack haddock"
