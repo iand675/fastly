@@ -215,11 +215,10 @@ validateSubroutineM (Subroutine name body) = do
   modify $ \c -> c { ctxCurrentSub = Just subCtx }
 
   -- Validate all statements
-  hasReturn <- validateStatementsM body
+  _ <- validateStatementsM body
 
-  -- Check if subroutine needs a return
-  when (not hasReturn && isPredefinedSub name) $
-    addError $ MissingReturn name
+  -- Note: VCL subroutines don't require explicit return statements
+  -- They can fall through to default behavior
 
   -- Reset context
   modify $ \c -> c { ctxCurrentSub = Nothing, ctxLocalVars = Map.empty }
@@ -276,7 +275,8 @@ validateStatementM (Declare ident typ maybeExpr) = do
   case maybeExpr of
     Just expr -> do
       exprType <- inferExprType expr
-      when (exprType /= typ && exprType /= TString) $  -- Allow implicit conversions from string
+      -- Require exact type match for variable initialization
+      when (exprType /= typ) $
         addError $ TypeMismatch typ exprType "variable initialization"
       validateExprM expr
     Nothing -> return ()
@@ -483,11 +483,11 @@ literalType (LDuration _) = TRTime
 -- | Get the type of a variable.
 variableType :: Variable -> Validator VCLType
 variableType (Variable parts) = case parts of
-  ["req", _] -> return TString
-  ["bereq", _] -> return TString
-  ["beresp", _] -> return TString
-  ["resp", _] -> return TString
-  ["obj", _] -> return TString
+  ("req":_) -> return TString
+  ("bereq":_) -> return TString
+  ("beresp":_) -> return TString
+  ("resp":_) -> return TString
+  ("obj":_) -> return TString
   ["client", "ip"] -> return TIP
   ["server", "ip"] -> return TIP
   ["var", name] -> do
@@ -535,17 +535,17 @@ checkVariableReadable :: Variable -> Validator ()
 checkVariableReadable var@(Variable parts) = do
   ctx <- get
   case (parts, ctxCurrentSub ctx) of
-    (["req", _], Just RecvContext) -> return ()
-    (["req", _], Just HashContext) -> return ()
-    (["bereq", _], Just FetchContext) -> return ()
-    (["bereq", _], Just ErrorContext) -> return ()
-    (["beresp", _], Just FetchContext) -> return ()
-    (["resp", _], Just DeliverContext) -> return ()
-    (["resp", _], Just ErrorContext) -> return ()
-    (["obj", _], Just DeliverContext) -> return ()
-    (["obj", _], Just HitContext) -> return ()
-    (["client", _], _) -> return ()
-    (["server", _], _) -> return ()
+    ("req":_, Just RecvContext) -> return ()
+    ("req":_, Just HashContext) -> return ()
+    ("bereq":_, Just FetchContext) -> return ()
+    ("bereq":_, Just ErrorContext) -> return ()
+    ("beresp":_, Just FetchContext) -> return ()
+    ("resp":_, Just DeliverContext) -> return ()
+    ("resp":_, Just ErrorContext) -> return ()
+    ("obj":_, Just DeliverContext) -> return ()
+    ("obj":_, Just HitContext) -> return ()
+    ("client":_, _) -> return ()
+    ("server":_, _) -> return ()
     (["var", name], _) ->
       unless (Identifier name `Map.member` ctxLocalVars ctx) $
         addError $ UndefinedVariable var
@@ -558,19 +558,19 @@ checkVariableWritable var@(Variable parts) = do
   ctx <- get
   case (parts, ctxCurrentSub ctx) of
     -- Read-only variables
-    (["client", _], _) -> addError $ ReadOnlyVariable var
-    (["server", _], _) -> addError $ ReadOnlyVariable var
+    ("client":_, _) -> addError $ ReadOnlyVariable var
+    ("server":_, _) -> addError $ ReadOnlyVariable var
     (["obj", "hits"], _) -> addError $ ReadOnlyVariable var
     (["obj", "lastuse"], _) -> addError $ ReadOnlyVariable var
 
     -- Context-specific writable variables
-    (["req", _], Just RecvContext) -> return ()
-    (["req", _], Just HashContext) -> return ()
-    (["bereq", _], Just FetchContext) -> return ()
-    (["bereq", _], Just ErrorContext) -> return ()
-    (["beresp", _], Just FetchContext) -> return ()
-    (["resp", _], Just DeliverContext) -> return ()
-    (["resp", _], Just ErrorContext) -> return ()
+    ("req":_, Just RecvContext) -> return ()
+    ("req":_, Just HashContext) -> return ()
+    ("bereq":_, Just FetchContext) -> return ()
+    ("bereq":_, Just ErrorContext) -> return ()
+    ("beresp":_, Just FetchContext) -> return ()
+    ("resp":_, Just DeliverContext) -> return ()
+    ("resp":_, Just ErrorContext) -> return ()
     (["var", name], _) ->
       unless (Identifier name `Map.member` ctxLocalVars ctx) $
         addError $ UndefinedVariable var
