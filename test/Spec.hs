@@ -6,6 +6,10 @@ import Data.Either
 import qualified Network.Fastly as F
 import qualified System.Environment as Env
 import qualified Data.Text as T
+import System.Exit (exitSuccess)
+import Control.Exception (catch, SomeException)
+
+import qualified VCLSpec
 
 surrogateKey = F.SurrogateKey "example/1"
 
@@ -47,6 +51,20 @@ tests token serviceId = do
 
 main :: IO ()
 main = do
-  token <- Env.getEnv "FASTLY_TOKEN"
-  serviceId <- Env.getEnv "FASTLY_SERVICE_ID"
-  tests (T.pack token) (F.ServiceId (T.pack serviceId))
+  -- Always run VCL unit tests
+  putStrLn "\n=== Running VCL Unit Tests ===\n"
+  hspec VCLSpec.spec
+
+  -- Try to run integration tests if environment variables are set
+  putStrLn "\n=== Running Integration Tests ===\n"
+  catch runIntegrationTests handleNoEnv
+  where
+    runIntegrationTests = do
+      token <- Env.getEnv "FASTLY_TOKEN"
+      serviceId <- Env.getEnv "FASTLY_SERVICE_ID"
+      tests (T.pack token) (F.ServiceId (T.pack serviceId))
+
+    handleNoEnv :: SomeException -> IO ()
+    handleNoEnv _ = do
+      putStrLn "Skipping integration tests (FASTLY_TOKEN and FASTLY_SERVICE_ID not set)"
+      exitSuccess
