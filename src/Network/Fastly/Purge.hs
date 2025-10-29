@@ -50,10 +50,10 @@ module Network.Fastly.Purge
   , edgeCheck
   ) where
 
+import Control.Monad.Except (ExceptT(..))
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
 import Network.HTTP.Client
-import Network.HTTP.Types (setQueryString)
 
 import Network.Fastly.Client
 import Network.Fastly.Types
@@ -85,7 +85,7 @@ purge :: FastlyClient
       -> PurgeMode  -- ^ Purge mode ('Instant' or 'Soft')
       -> String     -- ^ Full URL to purge
       -> FastlyM PurgeResult
-purge c mode url = ExceptT $ do
+purge _c mode url = ExceptT $ do
   m <- getGlobalManager
   case parseRequest url of
     Left _err -> return $ Left $ InvalidUrl url
@@ -212,6 +212,8 @@ edgeCheck c url = get c $ \r -> setQueryString [("url", Just $ encodeUtf8 url)] 
 publicIpList :: FastlyM Addresses
 publicIpList = ExceptT $ do
   m <- getGlobalManager
-  let Just req = parseRequest "https://api.fastly.com/public-ip-list"
-  r <- httpLbs req m
-  pedanticDecode r
+  case parseRequest "https://api.fastly.com/public-ip-list" of
+    Nothing -> return $ Left $ InvalidUrl "https://api.fastly.com/public-ip-list"
+    Just req -> do
+      r <- httpLbs req m
+      pedanticDecode r

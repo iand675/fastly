@@ -1,2 +1,5 @@
 /.stack-work/
 .envrc
+dist-newstyle/
+stack.yaml.lock
+*.lock

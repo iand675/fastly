@@ -65,8 +65,8 @@ import Data.Aeson (encode, object, (.=))
 import qualified Data.ByteString.Char8 as BS
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
-import Network.HTTP.Client (RequestBody(..), requestHeaders)
-import Network.HTTP.Types (urlEncodedBody, urlEncode)
+import Network.HTTP.Client (Request(..), RequestBody(..), requestHeaders, urlEncodedBody)
+import Network.HTTP.Types (urlEncode)
 
 import Network.Fastly.Client
 import Network.Fastly.Types

@@ -83,6 +83,7 @@ import Data.Aeson.Types
 import Data.HashMap.Strict (HashMap)
 import Data.IP (IPRange)
 import Data.Text (Text, pack, unpack)
+import qualified Data.Text as T
 import Data.Time.Clock (UTCTime)
 import Data.Time.Format
 import GHC.Generics
@@ -478,10 +479,10 @@ newtype ContentTypes = ContentTypes [Text]
   deriving (Show)
 
 instance ToJSON ContentTypes where
-  toJSON (ContentTypes ts) = String $ mconcat $ map (<> " ") ts
+  toJSON (ContentTypes ts) = String $ T.intercalate " " ts
 
 instance FromJSON ContentTypes where
-  parseJSON (String s) = return $ ContentTypes $ filter (not . null) $ words (unpack s)
+  parseJSON (String s) = return $ ContentTypes $ filter (not . T.null) $ T.words s
   parseJSON wat = typeMismatch "ContentTypes" wat
 
 -- | Space-delimited list of file extensions to compress.
@@ -489,10 +490,10 @@ newtype Extensions = Extensions [Text]
   deriving (Show)
 
 instance ToJSON Extensions where
-  toJSON (Extensions ts) = String $ mconcat $ map (<> " ") ts
+  toJSON (Extensions ts) = String $ T.intercalate " " ts
 
 instance FromJSON Extensions where
-  parseJSON (String s) = return $ Extensions $ filter (not . null) $ words (unpack s)
+  parseJSON (String s) = return $ Extensions $ filter (not . T.null) $ T.words s
   parseJSON wat = typeMismatch "Extensions" wat
 
 -- | Gzip compression configuration.

@@ -47,8 +47,10 @@ module Network.Fastly.Gzip
 
 import qualified Data.ByteString.Char8 as BS
 import Data.Text (Text)
+import qualified Data.Text as T
 import Data.Text.Encoding (encodeUtf8)
-import Network.HTTP.Types (urlEncodedBody, urlEncode)
+import Network.HTTP.Client (Request(..), urlEncodedBody)
+import Network.HTTP.Types (urlEncode)
 
 import Network.Fastly.Client
 import Network.Fastly.Types
@@ -113,9 +115,9 @@ createGzipConfiguration c (ServiceId sid) (ServiceVersionNumber v) name contentT
     ContentTypes cts = contentTypes
     Extensions exts = extensions
     params = [ ("name", encodeUtf8 name)
-             , ("content_types", encodeUtf8 $ unwords cts)
-             , ("extensions", encodeUtf8 $ unwords exts)
-             ] ++ if null cacheCondition then [] else [("cache_condition", encodeUtf8 cacheCondition)]
+             , ("content_types", encodeUtf8 $ T.unwords cts)
+             , ("extensions", encodeUtf8 $ T.unwords exts)
+             ] ++ if T.null cacheCondition then [] else [("cache_condition", encodeUtf8 cacheCondition)]
 
 -- | Update an existing gzip configuration.
 --
@@ -133,8 +135,8 @@ updateGzipConfiguration c (ServiceId sid) (ServiceVersionNumber v) name newName 
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/gzip/" <> urlEncode False (encodeUtf8 name) }
   where
     params = maybe [] (\n -> [("name", encodeUtf8 n)]) newName
-          ++ maybe [] (\(ContentTypes cts) -> [("content_types", encodeUtf8 $ unwords cts)]) contentTypes
-          ++ maybe [] (\(Extensions exts) -> [("extensions", encodeUtf8 $ unwords exts)]) extensions
+          ++ maybe [] (\(ContentTypes cts) -> [("content_types", encodeUtf8 $ T.unwords cts)]) contentTypes
+          ++ maybe [] (\(Extensions exts) -> [("extensions", encodeUtf8 $ T.unwords exts)]) extensions
           ++ maybe [] (\cc -> [("cache_condition", encodeUtf8 cc)]) cacheCondition
 
 -- | Delete a gzip configuration.

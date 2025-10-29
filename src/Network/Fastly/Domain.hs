@@ -61,7 +61,8 @@ module Network.Fastly.Domain
 import qualified Data.ByteString.Char8 as BS
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
-import Network.HTTP.Types (urlEncodedBody, urlEncode)
+import Network.HTTP.Client (Request(..), urlEncodedBody, requestHeaders)
+import Network.HTTP.Types (urlEncode)
 
 import Network.Fastly.Client
 import Network.Fastly.Types

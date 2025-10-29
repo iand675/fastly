@@ -65,7 +65,7 @@ module Network.Fastly.Service
 import qualified Data.ByteString.Char8 as BS
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
-import Network.HTTP.Types (setQueryString, urlEncodedBody)
+import Network.HTTP.Client (Request(..), setQueryString, urlEncodedBody)
 
 import Network.Fastly.Client
 import Network.Fastly.Types
