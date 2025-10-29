@@ -10,6 +10,7 @@ import System.Exit (exitSuccess)
 import Control.Exception (catch, SomeException)
 
 import qualified VCLSpec
+import qualified ValidationSpec
 
 surrogateKey = F.SurrogateKey "example/1"
 
@@ -54,6 +55,10 @@ main = do
   -- Always run VCL unit tests
   putStrLn "\n=== Running VCL Unit Tests ===\n"
   hspec VCLSpec.spec
+
+  -- Run VCL validation tests
+  putStrLn "\n=== Running VCL Validation Tests ===\n"
+  hspec ValidationSpec.spec
 
   -- Try to run integration tests if environment variables are set
   putStrLn "\n=== Running Integration Tests ===\n"

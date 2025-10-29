@@ -7,6 +7,7 @@ The `Network.Fastly.VCL` module provides comprehensive support for parsing, rend
 - **Parsing**: Parse VCL code into a typed AST using megaparsec
 - **Rendering**: Pretty-print VCL AST back to formatted text using prettyprinter
 - **Generation**: Build VCL programmatically using a convenient builder API
+- **Validation**: Semantic validation to catch errors beyond syntax
 - **Type-safe**: Strongly typed AST ensures correctness
 - **Round-trip**: Parse and render VCL code while preserving semantics
 
@@ -15,6 +16,7 @@ The `Network.Fastly.VCL` module provides comprehensive support for parsing, rend
 Add `fastly` to your project dependencies. The VCL module requires:
 - `megaparsec >= 9.0`
 - `prettyprinter >= 1.7`
+- `containers >= 0.6`
 
 ```cabal
 build-depends: fastly
@@ -46,6 +48,21 @@ let vcl = VCL
       ]
 
 putStrLn $ renderVCL vcl
+```
+
+### Validating VCL
+
+```haskell
+import Network.Fastly.VCL
+
+let vclCode = "sub vcl_recv { set req.http.Host = \"example.com\"; return(pass); }"
+case parseVCL vclCode of
+  Left err -> print err
+  Right vcl -> case validateVCL vcl of
+    Left errors -> do
+      putStrLn "Validation errors:"
+      mapM_ print errors
+    Right _ -> putStrLn "VCL is valid!"
 ```
 
 ## VCL AST Types
@@ -271,6 +288,202 @@ let vcl = VCL
 putStrLn $ renderVCL vcl
 ```
 
+## Validation
+
+The validation system performs semantic checks on VCL code to catch errors that are syntactically valid but semantically incorrect. This includes type checking, variable scope validation, reference validation, and control flow analysis.
+
+### Validation Functions
+
+```haskell
+validateVCL :: VCL -> ValidationResult VCL
+validateTopLevel :: TopLevel -> ValidationResult TopLevel
+validateSubroutine :: SubroutineContext -> Subroutine -> ValidationResult Subroutine
+validateStatement :: SubroutineContext -> Statement -> ValidationResult Statement
+validateExpr :: Expr -> ValidationResult Expr
+
+type ValidationResult a = Either [ValidationError] a
+```
+
+### Validation Errors
+
+The validation system can detect various types of errors:
+
+#### Variable Errors
+
+- `UndefinedVariable` - Variable used but not declared
+- `InvalidVariableContext` - Variable used in wrong subroutine (e.g., `req.*` in `vcl_deliver`)
+- `ReadOnlyVariable` - Attempted to modify read-only variable (e.g., `client.ip`)
+
+#### Type Errors
+
+- `TypeMismatch` - Type incompatibility in operations or assignments
+
+#### Reference Errors
+
+- `UndefinedSubroutine` - Called subroutine doesn't exist
+- `UndefinedBackend` - Referenced backend doesn't exist
+- `UndefinedACL` - Referenced ACL doesn't exist
+- `DuplicateDefinition` - Duplicate backend, ACL, or subroutine name
+
+#### Control Flow Errors
+
+- `InvalidReturnAction` - Invalid return action for subroutine context
+- `UnreachableCode` - Code after return/error/restart
+- `MissingReturn` - Predefined subroutine missing return statement
+
+### Subroutine Contexts
+
+Different VCL subroutines have different validation rules:
+
+```haskell
+data SubroutineContext
+  = RecvContext    -- vcl_recv - can use req.*, valid returns: lookup, pass, pipe, error, synth
+  | HashContext    -- vcl_hash - can use req.*, valid returns: lookup, hash
+  | HitContext     -- vcl_hit - can use obj.*, valid returns: deliver, pass, restart, synth
+  | MissContext    -- vcl_miss - valid returns: fetch, pass, synth, error
+  | PassContext    -- vcl_pass - valid returns: fetch, synth, error
+  | FetchContext   -- vcl_fetch - can use bereq.*, beresp.*, valid returns: deliver, restart
+  | ErrorContext   -- vcl_error - can use bereq.*, resp.*, valid returns: deliver, restart
+  | DeliverContext -- vcl_deliver - can use resp.*, obj.*, valid returns: deliver, restart
+  | LogContext     -- vcl_log - valid returns: deliver
+  | CustomContext  -- custom subroutine - lenient validation
+```
+
+### Validation Examples
+
+#### Example 1: Valid VCL
+
+```haskell
+let vclCode = unlines
+      [ "backend origin {"
+      , "  .host = \"example.com\";"
+      , "}"
+      , "sub vcl_recv {"
+      , "  set req.http.Host = \"example.com\";"
+      , "  return(pass);"
+      , "}"
+      ]
+
+case parseVCL vclCode >>= validateVCL of
+  Left errors -> mapM_ print errors
+  Right vcl -> putStrLn "Valid VCL!"
+```
+
+#### Example 2: Invalid Variable Context
+
+```haskell
+let vclCode = unlines
+      [ "sub vcl_deliver {"
+      , "  set req.http.Host = \"example.com\";"  -- ERROR: req.* not available in vcl_deliver
+      , "}"
+      ]
+
+case parseVCL vclCode >>= validateVCL of
+  Left errors -> print errors
+  -- Output: [InvalidVariableContext (Variable ["req","http","Host"]) DeliverContext]
+  Right _ -> putStrLn "Valid"
+```
+
+#### Example 3: Type Mismatch
+
+```haskell
+let vclCode = unlines
+      [ "sub vcl_recv {"
+      , "  if (42) {"  -- ERROR: if requires boolean condition
+      , "    return(pass);"
+      , "  }"
+      , "}"
+      ]
+
+case parseVCL vclCode >>= validateVCL of
+  Left errors -> print errors
+  -- Output: [TypeMismatch TBool TInteger "if condition"]
+  Right _ -> putStrLn "Valid"
+```
+
+#### Example 4: Invalid Return Action
+
+```haskell
+let vclCode = unlines
+      [ "sub vcl_recv {"
+      , "  return(deliver);"  -- ERROR: deliver not valid in vcl_recv
+      , "}"
+      ]
+
+case parseVCL vclCode >>= validateVCL of
+  Left errors -> print errors
+  -- Output: [InvalidReturnAction (Identifier "deliver") RecvContext]
+  Right _ -> putStrLn "Valid"
+```
+
+#### Example 5: Undefined Reference
+
+```haskell
+let vclCode = unlines
+      [ "sub vcl_recv {"
+      , "  call undefined_subroutine;"  -- ERROR: subroutine not defined
+      , "}"
+      ]
+
+case parseVCL vclCode >>= validateVCL of
+  Left errors -> print errors
+  -- Output: [UndefinedSubroutine (CustomSub "undefined_subroutine")]
+  Right _ -> putStrLn "Valid"
+```
+
+#### Example 6: Unreachable Code
+
+```haskell
+let vclCode = unlines
+      [ "sub vcl_recv {"
+      , "  return(pass);"
+      , "  set req.http.Host = \"example.com\";"  -- ERROR: unreachable
+      , "}"
+      ]
+
+case parseVCL vclCode >>= validateVCL of
+  Left errors -> print errors
+  -- Output: [UnreachableCode]
+  Right _ -> putStrLn "Valid"
+```
+
+### Validation Rules
+
+#### Variable Scope Rules
+
+| Variable Prefix | Readable In | Writable In | Notes |
+|----------------|-------------|-------------|-------|
+| `req.*` | vcl_recv, vcl_hash | vcl_recv, vcl_hash | Client request |
+| `bereq.*` | vcl_fetch, vcl_error | vcl_fetch, vcl_error | Backend request |
+| `beresp.*` | vcl_fetch | vcl_fetch | Backend response |
+| `resp.*` | vcl_deliver, vcl_error | vcl_deliver, vcl_error | Client response |
+| `obj.*` | vcl_hit, vcl_deliver | - | Cached object (read-only) |
+| `client.*` | All | - | Client info (read-only) |
+| `server.*` | All | - | Server info (read-only) |
+| `var.*` | All (if declared) | All (if declared) | Local variables |
+
+#### Return Action Rules
+
+| Subroutine | Valid Actions |
+|------------|---------------|
+| vcl_recv | lookup, pass, pipe, error, synth, hash |
+| vcl_hash | lookup, hash |
+| vcl_hit | deliver, pass, restart, synth, error |
+| vcl_miss | fetch, pass, synth, error |
+| vcl_pass | fetch, synth, error |
+| vcl_fetch | deliver, deliver_stale, restart, error |
+| vcl_error | deliver, restart |
+| vcl_deliver | deliver, restart |
+| vcl_log | deliver |
+
+#### Type Compatibility
+
+- Arithmetic operations (+, -, *, /, %) require INTEGER or FLOAT
+- Comparison operations (==, !=, <, >, <=, >=) require same types
+- Logical operations (&&, ||, !) require BOOL
+- Regex operations (~, !~) require STRING
+- String concatenation accepts any type (auto-converts)
+
 ## Parsing
 
 ### Parse Functions
@@ -334,6 +547,7 @@ The module includes comprehensive tests covering:
 - Pretty-printing
 - Round-trip parsing and rendering
 - Builder API
+- Validation (variable scope, type checking, references, control flow)
 
 Run tests with:
 ```bash

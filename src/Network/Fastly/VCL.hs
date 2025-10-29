@@ -14,6 +14,7 @@ This module provides comprehensive support for working with Fastly VCL
 * Parsing VCL from text
 * Rendering VCL AST to formatted text
 * Generating VCL programmatically using the AST
+* Validating VCL for semantic correctness
 
 = Usage Examples
 
@@ -36,6 +37,14 @@ This module provides comprehensive support for working with Fastly VCL
 >>> case parseVCL vclCode of
 ...   Left err -> print err
 ...   Right vcl -> putStrLn $ renderVCL vcl
+
+== Validating VCL
+
+>>> case parseVCL vclCode of
+...   Left err -> print err
+...   Right vcl -> case validateVCL vcl of
+...     Left errors -> mapM_ print errors
+...     Right _ -> putStrLn "VCL is valid!"
 -}
 
 module Network.Fastly.VCL
@@ -49,6 +58,17 @@ module Network.Fastly.VCL
   , parseExpr
   , parseStatement
   , ParseError
+
+    -- * Validation
+  , validateVCL
+  , validateTopLevel
+  , validateSubroutine
+  , validateStatement
+  , validateExpr
+  , ValidationError(..)
+  , ValidationResult
+  , ValidationWarning(..)
+  , SubroutineContext(..)
 
     -- * Rendering
   , renderVCL
@@ -110,6 +130,7 @@ import qualified Data.Text as T
 import Network.Fastly.VCL.Types
 import Network.Fastly.VCL.Parser
 import Network.Fastly.VCL.Pretty
+import Network.Fastly.VCL.Validation
 
 -- ---------------------------------------------------------------------------
 -- Builder Functions for Subroutines and Statements
