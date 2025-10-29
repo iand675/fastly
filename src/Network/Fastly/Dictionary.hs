@@ -68,7 +68,7 @@ import Data.Text.Encoding (encodeUtf8)
 import Network.HTTP.Client (Request(..), RequestBody(..), requestHeaders, urlEncodedBody)
 import Network.HTTP.Types (urlEncode)
 
-import Network.Fastly.Client
+import Network.Fastly.Client (MonadFastly(..))
 import Network.Fastly.Types
 
 -- ---------------------------------------------------------------------------
@@ -85,11 +85,11 @@ import Network.Fastly.Types
 -- dicts <- listDictionaries client serviceId versionNum
 -- mapM_ (\\d -> putStrLn $ dictionaryName d) dicts
 -- @
-listDictionaries :: FastlyClient
-                 -> ServiceId
+listDictionaries :: MonadFastly m =>
+                 ServiceId
                  -> ServiceVersionNumber
-                 -> FastlyM [Dictionary]
-listDictionaries c (ServiceId sid) (ServiceVersionNumber v) = get c $ \r ->
+                 -> m [Dictionary]
+listDictionaries (ServiceId sid) (ServiceVersionNumber v) = fastlyGet $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/dictionary" }
 
 -- | Get a specific dictionary by name.
@@ -100,12 +100,12 @@ listDictionaries c (ServiceId sid) (ServiceVersionNumber v) = get c $ \r ->
 -- dict <- getDictionary client serviceId versionNum "my-dictionary"
 -- putStrLn $ "Dictionary ID: " ++ show (dictionaryId dict)
 -- @
-getDictionary :: FastlyClient
-              -> ServiceId
+getDictionary :: MonadFastly m =>
+              ServiceId
               -> ServiceVersionNumber
               -> Text  -- ^ Dictionary name
-              -> FastlyM Dictionary
-getDictionary c (ServiceId sid) (ServiceVersionNumber v) name = get c $ \r ->
+              -> m Dictionary
+getDictionary (ServiceId sid) (ServiceVersionNumber v) name = fastlyGet $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/dictionary/" <> urlEncode False (encodeUtf8 name) }
 
 -- | Create a new dictionary in a service version.
@@ -122,12 +122,12 @@ getDictionary c (ServiceId sid) (ServiceVersionNumber v) name = get c $ \r ->
 -- dict <- createDictionary client serviceId versionNum "feature-flags"
 -- putStrLn $ "Created dictionary: " ++ show (dictionaryId dict)
 -- @
-createDictionary :: FastlyClient
-                 -> ServiceId
+createDictionary :: MonadFastly m =>
+                 ServiceId
                  -> ServiceVersionNumber
                  -> Text  -- ^ Dictionary name
-                 -> FastlyM Dictionary
-createDictionary c (ServiceId sid) (ServiceVersionNumber v) name = post c $ \r -> urlEncodedBody [("name", encodeUtf8 name)] $
+                 -> m Dictionary
+createDictionary (ServiceId sid) (ServiceVersionNumber v) name = fastlyPost $ \r -> urlEncodedBody [("name", encodeUtf8 name)] $
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/dictionary" }
 
 -- | Update a dictionary's name.
@@ -139,13 +139,13 @@ createDictionary c (ServiceId sid) (ServiceVersionNumber v) name = post c $ \r -
 -- @
 -- dict <- updateDictionary client serviceId versionNum "old-name" "new-name"
 -- @
-updateDictionary :: FastlyClient
-                 -> ServiceId
+updateDictionary :: MonadFastly m =>
+                 ServiceId
                  -> ServiceVersionNumber
                  -> Text  -- ^ Current dictionary name
                  -> Text  -- ^ New dictionary name
-                 -> FastlyM Dictionary
-updateDictionary c (ServiceId sid) (ServiceVersionNumber v) oldName newName = put c $ \r -> urlEncodedBody [("name", encodeUtf8 newName)] $
+                 -> m Dictionary
+updateDictionary (ServiceId sid) (ServiceVersionNumber v) oldName newName = fastlyPut $ \r -> urlEncodedBody [("name", encodeUtf8 newName)] $
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/dictionary/" <> urlEncode False (encodeUtf8 oldName) }
 
 -- | Delete a dictionary from a service version.
@@ -156,12 +156,12 @@ updateDictionary c (ServiceId sid) (ServiceVersionNumber v) oldName newName = pu
 -- __Note:__ This removes the dictionary from the service configuration.
 -- It does not delete the items themselves if the dictionary is in use
 -- by an active version.
-deleteDictionary :: FastlyClient
-                 -> ServiceId
+deleteDictionary :: MonadFastly m =>
+                 ServiceId
                  -> ServiceVersionNumber
                  -> Text  -- ^ Dictionary name
-                 -> FastlyM Dictionary
-deleteDictionary c (ServiceId sid) (ServiceVersionNumber v) name = delete c $ \r ->
+                 -> m Dictionary
+deleteDictionary (ServiceId sid) (ServiceVersionNumber v) name = fastlyDelete $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/dictionary/" <> urlEncode False (encodeUtf8 name) }
 
 -- ---------------------------------------------------------------------------
@@ -179,11 +179,11 @@ deleteDictionary c (ServiceId sid) (ServiceVersionNumber v) name = delete c $ \r
 -- items <- listDictionaryItems client serviceId dictId
 -- mapM_ (\\item -> putStrLn $ dictionaryItemItemKey item ++ " = " ++ dictionaryItemItemValue item) items
 -- @
-listDictionaryItems :: FastlyClient
-                    -> ServiceId
+listDictionaryItems :: MonadFastly m =>
+                    ServiceId
                     -> DictionaryId
-                    -> FastlyM [DictionaryItem]
-listDictionaryItems c (ServiceId sid) (DictionaryId dictId) = get c $ \r ->
+                    -> m [DictionaryItem]
+listDictionaryItems (ServiceId sid) (DictionaryId dictId) = fastlyGet $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/dictionary/" <> encodeUtf8 dictId <> "/items" }
 
 -- | Get a specific item from a dictionary by key.
@@ -194,12 +194,12 @@ listDictionaryItems c (ServiceId sid) (DictionaryId dictId) = get c $ \r ->
 -- item <- getDictionaryItem client serviceId dictId "feature-enabled"
 -- putStrLn $ "Value: " ++ dictionaryItemItemValue item
 -- @
-getDictionaryItem :: FastlyClient
-                  -> ServiceId
+getDictionaryItem :: MonadFastly m =>
+                  ServiceId
                   -> DictionaryId
                   -> Text  -- ^ Item key
-                  -> FastlyM DictionaryItem
-getDictionaryItem c (ServiceId sid) (DictionaryId dictId) key = get c $ \r ->
+                  -> m DictionaryItem
+getDictionaryItem (ServiceId sid) (DictionaryId dictId) key = fastlyGet $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/dictionary/" <> encodeUtf8 dictId <> "/item/" <> urlEncode False (encodeUtf8 key) }
 
 -- | Create a new item in a dictionary.
@@ -215,13 +215,13 @@ getDictionaryItem c (ServiceId sid) (DictionaryId dictId) key = get c $ \r ->
 -- @
 -- item <- createDictionaryItem client serviceId dictId "new-feature" "enabled"
 -- @
-createDictionaryItem :: FastlyClient
-                     -> ServiceId
+createDictionaryItem :: MonadFastly m =>
+                     ServiceId
                      -> DictionaryId
                      -> Text  -- ^ Item key
                      -> Text  -- ^ Item value
-                     -> FastlyM DictionaryItem
-createDictionaryItem c (ServiceId sid) (DictionaryId dictId) key value = post c $ \r -> urlEncodedBody [("item_key", encodeUtf8 key), ("item_value", encodeUtf8 value)] $
+                     -> m DictionaryItem
+createDictionaryItem (ServiceId sid) (DictionaryId dictId) key value = fastlyPost $ \r -> urlEncodedBody [("item_key", encodeUtf8 key), ("item_value", encodeUtf8 value)] $
   r { requestHeaders = ("Content-Type", "application/x-www-form-urlencoded") : requestHeaders r
     , path = "/service/" <> encodeUtf8 sid <> "/dictionary/" <> encodeUtf8 dictId <> "/item"
     }
@@ -236,13 +236,13 @@ createDictionaryItem c (ServiceId sid) (DictionaryId dictId) key value = post c 
 -- @
 -- item <- updateDictionaryItem client serviceId dictId "feature-flag" "disabled"
 -- @
-updateDictionaryItem :: FastlyClient
-                     -> ServiceId
+updateDictionaryItem :: MonadFastly m =>
+                     ServiceId
                      -> DictionaryId
                      -> Text  -- ^ Item key
                      -> Text  -- ^ New item value
-                     -> FastlyM DictionaryItem
-updateDictionaryItem c (ServiceId sid) (DictionaryId dictId) key value = put c $ \r -> urlEncodedBody [("item_value", encodeUtf8 value)] $
+                     -> m DictionaryItem
+updateDictionaryItem (ServiceId sid) (DictionaryId dictId) key value = fastlyPut $ \r -> urlEncodedBody [("item_value", encodeUtf8 value)] $
   r { requestHeaders = ("Content-Type", "application/x-www-form-urlencoded") : requestHeaders r
     , path = "/service/" <> encodeUtf8 sid <> "/dictionary/" <> encodeUtf8 dictId <> "/item/" <> urlEncode False (encodeUtf8 key)
     }
@@ -258,13 +258,13 @@ updateDictionaryItem c (ServiceId sid) (DictionaryId dictId) key value = put c $
 -- -- This works whether the key exists or not
 -- item <- upsertDictionaryItem client serviceId dictId "config-value" "42"
 -- @
-upsertDictionaryItem :: FastlyClient
-                     -> ServiceId
+upsertDictionaryItem :: MonadFastly m =>
+                     ServiceId
                      -> DictionaryId
                      -> Text  -- ^ Item key
                      -> Text  -- ^ Item value
-                     -> FastlyM DictionaryItem
-upsertDictionaryItem c (ServiceId sid) (DictionaryId dictId) key value = put c $ \r -> urlEncodedBody [("item_value", encodeUtf8 value)] $
+                     -> m DictionaryItem
+upsertDictionaryItem (ServiceId sid) (DictionaryId dictId) key value = fastlyPut $ \r -> urlEncodedBody [("item_value", encodeUtf8 value)] $
   r { requestHeaders = ("Content-Type", "application/x-www-form-urlencoded") : requestHeaders r
     , path = "/service/" <> encodeUtf8 sid <> "/dictionary/" <> encodeUtf8 dictId <> "/item/" <> urlEncode False (encodeUtf8 key)
     }
@@ -280,12 +280,12 @@ upsertDictionaryItem c (ServiceId sid) (DictionaryId dictId) key value = put c $
 -- result <- deleteDictionaryItem client serviceId dictId "old-config"
 -- putStrLn $ deleteDictionaryItemResultStatus result
 -- @
-deleteDictionaryItem :: FastlyClient
-                     -> ServiceId
+deleteDictionaryItem :: MonadFastly m =>
+                     ServiceId
                      -> DictionaryId
                      -> Text  -- ^ Item key
-                     -> FastlyM DeleteDictionaryItemResult
-deleteDictionaryItem c (ServiceId sid) (DictionaryId dictId) key = delete c $ \r ->
+                     -> m DeleteDictionaryItemResult
+deleteDictionaryItem (ServiceId sid) (DictionaryId dictId) key = fastlyDelete $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/dictionary/" <> encodeUtf8 dictId <> "/item/" <> urlEncode False (encodeUtf8 key) }
 
 -- ---------------------------------------------------------------------------
@@ -315,12 +315,12 @@ deleteDictionaryItem c (ServiceId sid) (DictionaryId dictId) key = delete c $ \r
 -- result <- batchEditDictionaryItems client serviceId dictId ops
 -- putStrLn $ "Batch edit status: " ++ batchEditResultStatus result
 -- @
-batchEditDictionaryItems :: FastlyClient
-                         -> ServiceId
+batchEditDictionaryItems :: MonadFastly m =>
+                         ServiceId
                          -> DictionaryId
                          -> [DictionaryItemOp]  -- ^ List of operations to perform
-                         -> FastlyM BatchEditResult
-batchEditDictionaryItems c (ServiceId sid) (DictionaryId dictId) ops = patch c $ \r ->
+                         -> m BatchEditResult
+batchEditDictionaryItems (ServiceId sid) (DictionaryId dictId) ops = fastlyPatch $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/dictionary/" <> encodeUtf8 dictId <> "/items"
     , requestBody = RequestBodyLBS $ encode $ object [ "items" .= ops ]
     }

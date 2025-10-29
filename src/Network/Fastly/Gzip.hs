@@ -52,7 +52,7 @@ import Data.Text.Encoding (encodeUtf8)
 import Network.HTTP.Client (Request(..), urlEncodedBody)
 import Network.HTTP.Types (urlEncode)
 
-import Network.Fastly.Client
+import Network.Fastly.Client (MonadFastly(..))
 import Network.Fastly.Types
 
 -- ---------------------------------------------------------------------------
@@ -67,11 +67,11 @@ import Network.Fastly.Types
 -- configs <- listGzipConfigurations client serviceId versionNum
 -- mapM_ (\\cfg -> putStrLn $ gzipConfigurationName cfg) configs
 -- @
-listGzipConfigurations :: FastlyClient
-                       -> ServiceId
+listGzipConfigurations :: MonadFastly m =>
+                       ServiceId
                        -> ServiceVersionNumber
-                       -> FastlyM [GzipConfiguration]
-listGzipConfigurations c (ServiceId sid) (ServiceVersionNumber v) = get c $ \r ->
+                       -> m [GzipConfiguration]
+listGzipConfigurations (ServiceId sid) (ServiceVersionNumber v) = fastlyGet $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/gzip" }
 
 -- | Get a specific gzip configuration by name.
@@ -82,12 +82,12 @@ listGzipConfigurations c (ServiceId sid) (ServiceVersionNumber v) = get c $ \r -
 -- config <- getGzipConfiguration client serviceId versionNum "default-gzip"
 -- print $ gzipConfigurationContentTypes config
 -- @
-getGzipConfiguration :: FastlyClient
-                     -> ServiceId
+getGzipConfiguration :: MonadFastly m =>
+                     ServiceId
                      -> ServiceVersionNumber
                      -> Text  -- ^ Configuration name
-                     -> FastlyM GzipConfiguration
-getGzipConfiguration c (ServiceId sid) (ServiceVersionNumber v) name = get c $ \r ->
+                     -> m GzipConfiguration
+getGzipConfiguration (ServiceId sid) (ServiceVersionNumber v) name = fastlyGet $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/gzip/" <> urlEncode False (encodeUtf8 name) }
 
 -- | Create a new gzip configuration.
@@ -101,15 +101,15 @@ getGzipConfiguration c (ServiceId sid) (ServiceVersionNumber v) name = get c $ \
 -- let extensions = Extensions ["html", "json", "css", "js"]
 -- config <- createGzipConfiguration client serviceId versionNum "my-gzip" contentTypes extensions ""
 -- @
-createGzipConfiguration :: FastlyClient
-                        -> ServiceId
+createGzipConfiguration :: MonadFastly m =>
+                        ServiceId
                         -> ServiceVersionNumber
                         -> Text  -- ^ Configuration name
                         -> ContentTypes  -- ^ Content types to compress
                         -> Extensions  -- ^ File extensions to compress
                         -> Text  -- ^ Cache condition (optional, use empty string for none)
-                        -> FastlyM GzipConfiguration
-createGzipConfiguration c (ServiceId sid) (ServiceVersionNumber v) name contentTypes extensions cacheCondition = post c $ \r -> urlEncodedBody params $
+                        -> m GzipConfiguration
+createGzipConfiguration (ServiceId sid) (ServiceVersionNumber v) name contentTypes extensions cacheCondition = fastlyPost $ \r -> urlEncodedBody params $
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/gzip" }
   where
     ContentTypes cts = contentTypes
@@ -122,16 +122,16 @@ createGzipConfiguration c (ServiceId sid) (ServiceVersionNumber v) name contentT
 -- | Update an existing gzip configuration.
 --
 -- The service version must not be active or locked.
-updateGzipConfiguration :: FastlyClient
-                        -> ServiceId
+updateGzipConfiguration :: MonadFastly m =>
+                        ServiceId
                         -> ServiceVersionNumber
                         -> Text  -- ^ Current configuration name
                         -> Maybe Text  -- ^ New name (Nothing to keep current)
                         -> Maybe ContentTypes  -- ^ New content types (Nothing to keep current)
                         -> Maybe Extensions  -- ^ New extensions (Nothing to keep current)
                         -> Maybe Text  -- ^ New cache condition (Nothing to keep current)
-                        -> FastlyM GzipConfiguration
-updateGzipConfiguration c (ServiceId sid) (ServiceVersionNumber v) name newName contentTypes extensions cacheCondition = put c $ \r -> urlEncodedBody params $
+                        -> m GzipConfiguration
+updateGzipConfiguration (ServiceId sid) (ServiceVersionNumber v) name newName contentTypes extensions cacheCondition = fastlyPut $ \r -> urlEncodedBody params $
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/gzip/" <> urlEncode False (encodeUtf8 name) }
   where
     params = maybe [] (\n -> [("name", encodeUtf8 n)]) newName
@@ -149,10 +149,10 @@ updateGzipConfiguration c (ServiceId sid) (ServiceVersionNumber v) name newName 
 -- result <- deleteGzipConfiguration client serviceId versionNum "old-gzip-config"
 -- putStrLn $ deleteGzipConfigurationResultStatus result
 -- @
-deleteGzipConfiguration :: FastlyClient
-                        -> ServiceId
+deleteGzipConfiguration :: MonadFastly m =>
+                        ServiceId
                         -> ServiceVersionNumber
                         -> Text  -- ^ Configuration name
-                        -> FastlyM DeleteGzipConfigurationResult
-deleteGzipConfiguration c (ServiceId sid) (ServiceVersionNumber v) name = delete c $ \r ->
+                        -> m DeleteGzipConfigurationResult
+deleteGzipConfiguration (ServiceId sid) (ServiceVersionNumber v) name = fastlyDelete $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/gzip/" <> urlEncode False (encodeUtf8 name) }

@@ -50,12 +50,14 @@ module Network.Fastly.Purge
   , edgeCheck
   ) where
 
-import Control.Monad.Except (ExceptT(..))
+import Control.Monad.Except (throwError)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Reader (ask)
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
 import Network.HTTP.Client
 
-import Network.Fastly.Client
+import Network.Fastly.Client (MonadFastly(..), FastlyClient(..), getGlobalManager, pedanticDecode, FastlyM(..))
 import Network.Fastly.Types
 
 -- ---------------------------------------------------------------------------
@@ -81,20 +83,21 @@ import Network.Fastly.Types
 -- -- Soft purge (mark as stale)
 -- result <- purge client Soft "https://www.example.com/api/data"
 -- @
-purge :: FastlyClient
-      -> PurgeMode  -- ^ Purge mode ('Instant' or 'Soft')
+purge :: PurgeMode  -- ^ Purge mode ('Instant' or 'Soft')
       -> String     -- ^ Full URL to purge
       -> FastlyM PurgeResult
-purge _c mode url = ExceptT $ do
-  m <- getGlobalManager
-  case parseRequest url of
-    Left _err -> return $ Left $ InvalidUrl url
-    Right req -> do
-      let f r = case mode of
-            Instant -> r
-            Soft -> r { requestHeaders = ("Fastly-Soft-Purge", "1") : requestHeaders r }
-      r <- httpLbs (f req) { method = "PURGE" } m
-      pedanticDecode r
+purge mode url = FastlyM $ do
+  result <- liftIO $ do
+    m <- getGlobalManager
+    case parseRequest url of
+      Left _err -> return $ Left $ InvalidUrl url
+      Right req -> do
+        let f r = case mode of
+              Instant -> r
+              Soft -> r { requestHeaders = ("Fastly-Soft-Purge", "1") : requestHeaders r }
+        r <- httpLbs (f req) { method = "PURGE" } m
+        pedanticDecode r
+  either throwError return result
 
 -- | Purge all URLs tagged with a specific surrogate key.
 --
@@ -117,22 +120,24 @@ purge _c mode url = ExceptT $ do
 -- -- Hard purge all content tagged with "breaking-news"
 -- result <- purgeKey client Instant serviceId (SurrogateKey "breaking-news")
 -- @
-purgeKey :: FastlyClient
-         -> PurgeMode       -- ^ Purge mode ('Instant' or 'Soft')
+purgeKey :: PurgeMode       -- ^ Purge mode ('Instant' or 'Soft')
          -> ServiceId       -- ^ Service ID
          -> SurrogateKey    -- ^ Surrogate key to purge
          -> FastlyM PurgeResult
-purgeKey c mode (ServiceId sid) (SurrogateKey skey) = ExceptT $ do
-  m <- getGlobalManager
-  let baseReq = fastlyClientBaseRequest c
-      req = baseReq { method = "POST"
-                    , path = "/service/" <> encodeUtf8 sid <> "/purge/" <> encodeUtf8 skey
-                    , requestHeaders = case mode of
-                        Instant -> requestHeaders baseReq
-                        Soft -> ("Fastly-Soft-Purge", "1") : requestHeaders baseReq
-                    }
-  r <- httpLbs req m
-  pedanticDecode r
+purgeKey mode (ServiceId sid) (SurrogateKey skey) = FastlyM $ do
+  client <- ask
+  result <- liftIO $ do
+    m <- getGlobalManager
+    let baseReq = fastlyClientBaseRequest client
+        req = baseReq { method = "POST"
+                      , path = "/service/" <> encodeUtf8 sid <> "/purge/" <> encodeUtf8 skey
+                      , requestHeaders = case mode of
+                          Instant -> requestHeaders baseReq
+                          Soft -> ("Fastly-Soft-Purge", "1") : requestHeaders baseReq
+                      }
+    r <- httpLbs req m
+    pedanticDecode r
+  either throwError return result
 
 -- | Purge all cached content for a service.
 --
@@ -154,16 +159,18 @@ purgeKey c mode (ServiceId sid) (SurrogateKey skey) = ExceptT $ do
 -- result <- purgeAll client (ServiceId "service-id")
 -- putStrLn $ "Purge status: " ++ purgeAllResultStatus result
 -- @
-purgeAll :: FastlyClient
-         -> ServiceId  -- ^ Service ID
+purgeAll :: ServiceId  -- ^ Service ID
          -> FastlyM PurgeAllResult
-purgeAll c (ServiceId sid) = ExceptT $ do
-  m <- getGlobalManager
-  let req = (fastlyClientBaseRequest c) { method = "POST"
-                                        , path = "/service/" <> encodeUtf8 sid <> "/purge_all"
-                                        }
-  r <- httpLbs req m
-  pedanticDecode r
+purgeAll (ServiceId sid) = FastlyM $ do
+  client <- ask
+  result <- liftIO $ do
+    m <- getGlobalManager
+    let req = (fastlyClientBaseRequest client) { method = "POST"
+                                                , path = "/service/" <> encodeUtf8 sid <> "/purge_all"
+                                                }
+    r <- httpLbs req m
+    pedanticDecode r
+  either throwError return result
 
 -- ---------------------------------------------------------------------------
 -- Utility Operations
@@ -188,10 +195,9 @@ purgeAll c (ServiceId sid) = ExceptT $ do
 --   putStrLn $ "Response time: " ++ show (cacheStatusResponseTime s)
 -- ) statuses
 -- @
-edgeCheck :: FastlyClient
-          -> Text  -- ^ URL to check
+edgeCheck :: Text  -- ^ URL to check
           -> FastlyM [CacheStatus]
-edgeCheck c url = get c $ \r -> setQueryString [("url", Just $ encodeUtf8 url)] $
+edgeCheck url = fastlyGet $ \r -> setQueryString [("url", Just $ encodeUtf8 url)] $
   r { path = "/content/edge_check" }
 
 -- | Get a list of Fastly's public IP address ranges.
@@ -210,10 +216,12 @@ edgeCheck c url = get c $ \r -> setQueryString [("url", Just $ encodeUtf8 url)] 
 -- putStrLn $ "Fastly uses " ++ show (length $ addresses addrs) ++ " IP ranges"
 -- @
 publicIpList :: FastlyM Addresses
-publicIpList = ExceptT $ do
-  m <- getGlobalManager
-  case parseRequest "https://api.fastly.com/public-ip-list" of
-    Nothing -> return $ Left $ InvalidUrl "https://api.fastly.com/public-ip-list"
-    Just req -> do
-      r <- httpLbs req m
-      pedanticDecode r
+publicIpList = FastlyM $ do
+  result <- liftIO $ do
+    m <- getGlobalManager
+    case parseRequest "https://api.fastly.com/public-ip-list" of
+      Nothing -> return $ Left $ InvalidUrl "https://api.fastly.com/public-ip-list"
+      Just req -> do
+        r <- httpLbs req m
+        pedanticDecode r
+  either throwError return result

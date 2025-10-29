@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 {-|
@@ -10,29 +11,23 @@ Stability   : experimental
 
 This module provides operations for managing Fastly services.
 
-A service represents a single website or application configuration in Fastly.
-Each service can have multiple versions, with typically one active version
-serving production traffic.
-
-= Service Workflow
-
-1. Create a service with 'createService'
-2. Add configuration (domains, backends, etc.) to a draft version
-3. Validate the version with 'validateServiceVersion'
-4. Activate the version with 'activateServiceVersion'
-5. Monitor and update as needed
+All functions work with any monad that implements 'MonadFastly', making them
+testable and allowing for alternative implementations.
 
 = Examples
 
 @
--- List all services
-services <- listServices client
+import Network.Fastly
 
--- Get a specific service with all details
-service <- getServiceDetails client (ServiceId "service-id")
+main = do
+  result <- runFastly "your-token" $ do
+    -- List all services
+    services <- listServices
 
--- Search for a service by name
-maybeService <- getServiceByName client "my-service"
+    -- Get a specific service with all details
+    service <- getServiceDetails (ServiceId "service-id")
+
+    return (services, service)
 @
 -}
 
@@ -67,7 +62,7 @@ import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
 import Network.HTTP.Client (Request(..), setQueryString, urlEncodedBody)
 
-import Network.Fastly.Client
+import Network.Fastly.Client (MonadFastly(..))
 import Network.Fastly.Types
 
 -- ---------------------------------------------------------------------------
@@ -85,18 +80,18 @@ import Network.Fastly.Types
 -- services <- listServices client
 -- mapM_ (\\s -> putStrLn $ serviceListItemName s) services
 -- @
-listServices :: FastlyClient -> FastlyM [ServiceListItem]
-listServices c = get c $ \r ->
+listServices :: MonadFastly m => m [ServiceListItem]
+listServices = fastlyGet $ \r ->
   r { path = "/service" }
 
 -- | Get basic information about a service.
 --
 -- This returns a 'Service' with some details but may not include all configuration.
 -- For complete details including all versions and configurations, use 'getServiceDetails'.
-getService :: FastlyClient
-           -> ServiceId
-           -> FastlyM Service
-getService c (ServiceId sid) = get c $ \r ->
+getService :: MonadFastly m =>
+                  ServiceId
+           -> m Service
+getService (ServiceId sid) = fastlyGet $ \r ->
   r { path = "/service/" <> encodeUtf8 sid }
 
 -- | Get complete details about a service.
@@ -112,10 +107,10 @@ getService c (ServiceId sid) = get c $ \r ->
 --   Nothing -> putStrLn "No active version"
 --   Just v -> putStrLn $ "Active version: " ++ show (serviceVersionNumber v)
 -- @
-getServiceDetails :: FastlyClient
-                  -> ServiceId
-                  -> FastlyM Service
-getServiceDetails c (ServiceId sid) = get c $ \r ->
+getServiceDetails :: MonadFastly m =>
+                  ServiceId
+                  -> m Service
+getServiceDetails (ServiceId sid) = fastlyGet $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/details" }
 
 -- | Search for a service by name.
@@ -130,10 +125,10 @@ getServiceDetails c (ServiceId sid) = get c $ \r ->
 --   Nothing -> putStrLn "Service not found"
 --   Just s -> putStrLn $ "Found service: " ++ show (serviceId s)
 -- @
-getServiceByName :: FastlyClient
-                 -> Text  -- ^ Service name to search for
-                 -> FastlyM (Maybe Service)
-getServiceByName c name = get c $ \r -> setQueryString [("name", Just $ encodeUtf8 name)] $
+getServiceByName :: MonadFastly m =>
+                 Text  -- ^ Service name to search for
+                 -> m (Maybe Service)
+getServiceByName name = fastlyGet $ \r -> setQueryString [("name", Just $ encodeUtf8 name)] $
   r { path = "/service/search" }
 
 -- | Create a new service.
@@ -147,11 +142,11 @@ getServiceByName c name = get c $ \r -> setQueryString [("name", Just $ encodeUt
 -- service <- createService client "My New Service" Nothing
 -- putStrLn $ "Created service: " ++ show (serviceId service)
 -- @
-createService :: FastlyClient
-              -> Text  -- ^ Service name
+createService :: MonadFastly m =>
+              Text  -- ^ Service name
               -> Maybe Text  -- ^ Optional comment describing the service
-              -> FastlyM Service
-createService c name comment = post c $ \r -> urlEncodedBody params $
+              -> m Service
+createService name comment = fastlyPost $ \r -> urlEncodedBody params $
   r { path = "/service" }
   where
     params = ("name", encodeUtf8 name) : maybe [] (\c' -> [("comment", encodeUtf8 c')]) comment
@@ -160,12 +155,12 @@ createService c name comment = post c $ \r -> urlEncodedBody params $
 --
 -- You can update the service name and comment. This does not affect
 -- service versions or their configurations.
-updateService :: FastlyClient
-              -> ServiceId
+updateService :: MonadFastly m =>
+              ServiceId
               -> Maybe Text  -- ^ New service name
               -> Maybe Text  -- ^ New comment
-              -> FastlyM Service
-updateService c (ServiceId sid) name comment = put c $ \r -> urlEncodedBody params $
+              -> m Service
+updateService (ServiceId sid) name comment = fastlyPut $ \r -> urlEncodedBody params $
   r { path = "/service/" <> encodeUtf8 sid }
   where
     params = maybe [] (\n -> [("name", encodeUtf8 n)]) name
@@ -175,10 +170,10 @@ updateService c (ServiceId sid) name comment = put c $ \r -> urlEncodedBody para
 --
 -- __Warning:__ This operation cannot be undone. All versions and configurations
 -- will be permanently deleted.
-deleteService :: FastlyClient
-              -> ServiceId
-              -> FastlyM Service
-deleteService c (ServiceId sid) = delete c $ \r ->
+deleteService :: MonadFastly m =>
+              ServiceId
+              -> m Service
+deleteService (ServiceId sid) = fastlyDelete $ \r ->
   r { path = "/service/" <> encodeUtf8 sid }
 
 -- ---------------------------------------------------------------------------
@@ -188,21 +183,21 @@ deleteService c (ServiceId sid) = delete c $ \r ->
 -- | List all versions of a service.
 --
 -- Returns a list of 'ServiceBasicVersion' with information about each version.
-listServiceVersions :: FastlyClient
-                    -> ServiceId
-                    -> FastlyM [ServiceBasicVersion]
-listServiceVersions c (ServiceId sid) = get c $ \r ->
+listServiceVersions :: MonadFastly m =>
+                    ServiceId
+                    -> m [ServiceBasicVersion]
+listServiceVersions (ServiceId sid) = fastlyGet $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/version" }
 
 -- | Get details about a specific service version.
 --
 -- Returns a 'ServiceVersion' with complete configuration including
 -- backends, domains, VCLs, and all other settings.
-getServiceVersion :: FastlyClient
-                  -> ServiceId
+getServiceVersion :: MonadFastly m =>
+                  ServiceId
                   -> ServiceVersionNumber
-                  -> FastlyM ServiceVersion
-getServiceVersion c (ServiceId sid) (ServiceVersionNumber v) = get c $ \r ->
+                  -> m ServiceVersion
+getServiceVersion (ServiceId sid) (ServiceVersionNumber v) = fastlyGet $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) }
 
 -- | Create a new draft version based on the active version.
@@ -216,21 +211,21 @@ getServiceVersion c (ServiceId sid) (ServiceVersionNumber v) = get c $ \r ->
 -- version <- createServiceVersion client (ServiceId "service-id")
 -- putStrLn $ "Created version: " ++ show (serviceVersionNumber version)
 -- @
-createServiceVersion :: FastlyClient
-                     -> ServiceId
-                     -> FastlyM ServiceVersion
-createServiceVersion c (ServiceId sid) = post c $ \r ->
+createServiceVersion :: MonadFastly m =>
+                     ServiceId
+                     -> m ServiceVersion
+createServiceVersion (ServiceId sid) = fastlyPost $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/version" }
 
 -- | Update a service version's comment.
 --
 -- The version must not be active or locked.
-updateServiceVersion :: FastlyClient
-                     -> ServiceId
+updateServiceVersion :: MonadFastly m =>
+                     ServiceId
                      -> ServiceVersionNumber
                      -> Text  -- ^ New comment
-                     -> FastlyM ServiceVersion
-updateServiceVersion c (ServiceId sid) (ServiceVersionNumber v) comment = put c $ \r -> urlEncodedBody [("comment", encodeUtf8 comment)] $
+                     -> m ServiceVersion
+updateServiceVersion (ServiceId sid) (ServiceVersionNumber v) comment = fastlyPut $ \r -> urlEncodedBody [("comment", encodeUtf8 comment)] $
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) }
 
 -- | Clone a service version.
@@ -245,11 +240,11 @@ updateServiceVersion c (ServiceId sid) (ServiceVersionNumber v) comment = put c 
 -- -- Clone version 3 to create a new draft version
 -- newVersion <- cloneServiceVersion client (ServiceId "service-id") (ServiceVersionNumber 3)
 -- @
-cloneServiceVersion :: FastlyClient
-                    -> ServiceId
+cloneServiceVersion :: MonadFastly m =>
+                    ServiceId
                     -> ServiceVersionNumber  -- ^ Version to clone
-                    -> FastlyM ServiceVersion
-cloneServiceVersion c (ServiceId sid) (ServiceVersionNumber v) = put c $ \r ->
+                    -> m ServiceVersion
+cloneServiceVersion (ServiceId sid) (ServiceVersionNumber v) = fastlyPut $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/clone" }
 
 -- | Validate a service version.
@@ -266,11 +261,11 @@ cloneServiceVersion c (ServiceId sid) (ServiceVersionNumber v) = put c $ \r ->
 -- result <- validateServiceVersion client (ServiceId "service-id") (ServiceVersionNumber 2)
 -- -- Check the result for validation errors
 -- @
-validateServiceVersion :: FastlyClient
-                       -> ServiceId
+validateServiceVersion :: MonadFastly m =>
+                       ServiceId
                        -> ServiceVersionNumber
-                       -> FastlyM ServiceVersion
-validateServiceVersion c (ServiceId sid) (ServiceVersionNumber v) = get c $ \r ->
+                       -> m ServiceVersion
+validateServiceVersion (ServiceId sid) (ServiceVersionNumber v) = fastlyGet $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/validate" }
 
 -- | Activate a service version.
@@ -289,22 +284,22 @@ validateServiceVersion c (ServiceId sid) (ServiceVersionNumber v) = get c $ \r -
 -- -- Then activate
 -- activeVersion <- activateServiceVersion client serviceId versionNum
 -- @
-activateServiceVersion :: FastlyClient
-                       -> ServiceId
+activateServiceVersion :: MonadFastly m =>
+                       ServiceId
                        -> ServiceVersionNumber
-                       -> FastlyM ServiceVersion
-activateServiceVersion c (ServiceId sid) (ServiceVersionNumber v) = put c $ \r ->
+                       -> m ServiceVersion
+activateServiceVersion (ServiceId sid) (ServiceVersionNumber v) = fastlyPut $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/activate" }
 
 -- | Deactivate the active service version.
 --
 -- This will stop the version from serving traffic. Typically you would
 -- activate a different version rather than just deactivating.
-deactivateServiceVersion :: FastlyClient
-                         -> ServiceId
+deactivateServiceVersion :: MonadFastly m =>
+                         ServiceId
                          -> ServiceVersionNumber
-                         -> FastlyM ServiceVersion
-deactivateServiceVersion c (ServiceId sid) (ServiceVersionNumber v) = put c $ \r ->
+                         -> m ServiceVersion
+deactivateServiceVersion (ServiceId sid) (ServiceVersionNumber v) = fastlyPut $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/deactivate" }
 
 -- | Lock a service version to prevent modifications.
@@ -313,9 +308,9 @@ deactivateServiceVersion c (ServiceId sid) (ServiceVersionNumber v) = put c $ \r
 -- for preserving important historical configurations.
 --
 -- __Warning:__ This operation cannot be undone. A locked version cannot be unlocked.
-lockServiceVersion :: FastlyClient
-                   -> ServiceId
+lockServiceVersion :: MonadFastly m =>
+                   ServiceId
                    -> ServiceVersionNumber
-                   -> FastlyM ServiceVersion
-lockServiceVersion c (ServiceId sid) (ServiceVersionNumber v) = put c $ \r ->
+                   -> m ServiceVersion
+lockServiceVersion (ServiceId sid) (ServiceVersionNumber v) = fastlyPut $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/lock" }

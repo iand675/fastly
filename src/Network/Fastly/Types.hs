@@ -21,9 +21,7 @@ module Network.Fastly.Types
   , Password(..)
 
     -- * Client Types
-  , FastlyClient(..)
   , FastlyResponse(..)
-  , FastlyM
   , FastlyError(..)
 
     -- * Service Types
@@ -77,7 +75,6 @@ module Network.Fastly.Types
 
 import Control.Applicative
 import Control.Exception (Exception)
-import Control.Monad.Except
 import Data.Aeson
 import Data.Aeson.Types
 import Data.HashMap.Strict (HashMap)
@@ -87,7 +84,6 @@ import qualified Data.Text as T
 import Data.Time.Clock (UTCTime)
 import Data.Time.Format
 import GHC.Generics
-import Network.HTTP.Client (Request)
 
 -- | JSON options for deriving ToJSON/FromJSON instances.
 -- Takes a prefix length to drop from field names and converts to snake_case.
@@ -116,15 +112,6 @@ newtype Password = Password Text
 -- Client Types
 -- ---------------------------------------------------------------------------
 
--- | The Fastly API client.
---
--- Contains the base HTTP request with authentication headers pre-configured.
--- Create an instance using 'fastlyClient' from "Network.Fastly.Client".
-data FastlyClient = FastlyClient
-  { fastlyClientBaseRequest :: Request
-  -- ^ The base HTTP request with auth headers configured
-  }
-
 -- | Response wrapper that includes Fastly rate limit information.
 --
 -- All API responses are wrapped in this type to provide access to
@@ -137,12 +124,6 @@ data FastlyResponse a = FastlyResponse
   , fastlyResponseValue              :: a
   -- ^ The actual response value
   } deriving (Show)
-
--- | The Fastly monad for API operations.
---
--- This is an 'ExceptT' transformer that handles 'FastlyError's and runs in 'IO'.
--- Most API operations return values in this monad.
-type FastlyM a = ExceptT FastlyError IO a
 
 -- | Errors that can occur when making Fastly API calls.
 data FastlyError

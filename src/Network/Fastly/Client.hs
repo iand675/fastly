@@ -1,3 +1,7 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 {-|
@@ -11,6 +15,9 @@ Stability   : experimental
 This module provides the HTTP client functionality and authentication
 mechanisms for interacting with the Fastly API.
 
+The core design uses a 'MonadFastly' type class that abstracts HTTP operations,
+making the library testable and allowing for alternative implementations.
+
 = Usage
 
 @
@@ -18,9 +25,9 @@ import Network.Fastly.Client
 
 main :: IO ()
 main = do
-  result <- fastly "your-api-token" $ \\client -> do
+  result <- runFastly "your-api-token" $ do
     -- Make API calls here
-    listServices client
+    listServices
 
   case result of
     Left err -> putStrLn $ "Error: " ++ show err
@@ -29,37 +36,99 @@ main = do
 -}
 
 module Network.Fastly.Client
-  ( -- * Client Creation
-    fastlyClient
+  ( -- * Type Class
+    MonadFastly(..)
+
+    -- * Client Creation
+  , FastlyClient(..)
+  , fastlyClient
+  , runFastly
   , fastly
 
-    -- * HTTP Operations
-  , get
-  , post
-  , put
-  , delete
-  , patch
+    -- * FastlyM Implementation
+  , FastlyM(..)
+  , runFastlyM
 
     -- * Response Handling
   , pedanticDecode
-  , readFromResponse
 
     -- * Manager
   , getGlobalManager
   ) where
 
 import Control.Monad.Except
+import Control.Monad.Reader
 import Data.Aeson
 import Data.ByteString.Lazy (ByteString)
-import Data.ByteString.Lex.Integral (readDecimal_)
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
 import Network.HTTP.Client
 import Network.HTTP.Client.TLS (newTlsManager)
-import Network.HTTP.Types
 import System.IO.Unsafe (unsafePerformIO)
 
 import Network.Fastly.Types
+
+-- | Type class for Fastly API operations.
+--
+-- This abstracts the HTTP operations needed to interact with the Fastly API,
+-- allowing for different implementations (production, testing, mocking, etc.).
+--
+-- The client connection and HTTP dispatch are managed internally by the instance.
+class (Monad m, MonadIO m, MonadError FastlyError m) => MonadFastly m where
+  -- | Execute an HTTP GET request.
+  --
+  -- The request modifier function can set the path, query parameters, and headers.
+  fastlyGet :: FromJSON a => (Request -> Request) -> m a
+
+  -- | Execute an HTTP POST request.
+  --
+  -- Used for creating new resources.
+  fastlyPost :: FromJSON a => (Request -> Request) -> m a
+
+  -- | Execute an HTTP PUT request.
+  --
+  -- Used for full updates of existing resources.
+  fastlyPut :: FromJSON a => (Request -> Request) -> m a
+
+  -- | Execute an HTTP DELETE request.
+  --
+  -- Used for deleting resources.
+  fastlyDelete :: FromJSON a => (Request -> Request) -> m a
+
+  -- | Execute an HTTP PATCH request.
+  --
+  -- Used for partial updates of existing resources.
+  fastlyPatch :: FromJSON a => (Request -> Request) -> m a
+
+-- | The standard Fastly monad implementation.
+--
+-- This is a newtype wrapper around a monad transformer stack that provides:
+--
+-- * 'ReaderT' for accessing the 'FastlyClient' configuration
+-- * 'ExceptT' for error handling
+-- * 'IO' as the base monad
+newtype FastlyM a = FastlyM
+  { unFastlyM :: ReaderT FastlyClient (ExceptT FastlyError IO) a }
+  deriving
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadIO
+    , MonadError FastlyError
+    , MonadReader FastlyClient
+    )
+
+-- | Run a 'FastlyM' computation with a given client.
+runFastlyM :: FastlyClient -> FastlyM a -> IO (Either FastlyError a)
+runFastlyM client action = runExceptT $ runReaderT (unFastlyM action) client
+
+-- | The Fastly API client.
+--
+-- Contains the base HTTP request with authentication headers pre-configured.
+data FastlyClient = FastlyClient
+  { fastlyClientBaseRequest :: Request
+  -- ^ The base HTTP request with auth headers configured
+  }
 
 -- | The base URL for the Fastly API.
 fastlyRootRequest :: Request
@@ -99,23 +168,6 @@ fastlyClient (AuthToken t) = do
 fastlyClient (Login (Username _u) (Password _p)) = do
   error "Login-based authentication not yet implemented. Please use AuthToken."
 
--- | Execute Fastly API operations with a client created from an API token.
---
--- This is a convenience function that creates a client, executes the given
--- action, and returns the result.
---
--- ==== __Examples__
---
--- @
--- result <- fastly "your-api-token" $ \\client -> do
---   services <- listServices client
---   return services
--- @
-fastly :: Text -> (FastlyClient -> FastlyM a) -> IO (Either FastlyError a)
-fastly t f = do
-  c <- fastlyClient $ AuthToken t
-  runExceptT (f c)
-
 -- | Pedantic JSON decoder that provides detailed error information.
 --
 -- This function attempts to decode the response body as JSON.
@@ -128,74 +180,79 @@ pedanticDecode r = return $ case eitherDecode $ responseBody r of
     Left _jsonErr -> Left $ JsonError err Nothing
     Right json    -> Left $ JsonError err (Just json)
 
--- | Extract rate limit information from response headers and combine with parsed body.
+-- | Instance of 'MonadFastly' for 'FastlyM'.
 --
--- The Fastly API includes rate limiting information in response headers:
---
--- * @Fastly-RateLimit-Remaining@: Number of requests remaining in the current window
--- * @Fastly-RateLimit-Reset@: UTC epoch seconds when the window resets
-readFromResponse :: Response a -> (Response a -> Either FastlyError b) -> Either FastlyError (FastlyResponse b)
-readFromResponse r f = do
-  case details of
-    Nothing -> Left InvalidOrMissingRateLimitData
-    Just (rem, res) -> do
-      x <- f r
-      return $ FastlyResponse rem res x
-  where
-    hs = responseHeaders r
-    details = do
-      remBs <- lookup "Fastly-RateLimit-Remaining" hs
-      resBs <- lookup "Fastly-RateLimit-Reset" hs
-      return (readDecimal_ remBs, readDecimal_ resBs)
+-- This implementation manages the HTTP client connection and performs
+-- actual HTTP requests to the Fastly API.
+instance MonadFastly FastlyM where
+  fastlyGet f = FastlyM $ do
+    client <- ask
+    let req = (f $ fastlyClientBaseRequest client) { method = "GET" }
+    result <- liftIO $ do
+      m <- getGlobalManager
+      r <- httpLbs req m
+      pedanticDecode r
+    either throwError return result
 
--- | Execute an HTTP GET request.
+  fastlyPost f = FastlyM $ do
+    client <- ask
+    let req = (f $ fastlyClientBaseRequest client) { method = "POST" }
+    result <- liftIO $ do
+      m <- getGlobalManager
+      r <- httpLbs req m
+      pedanticDecode r
+    either throwError return result
+
+  fastlyPut f = FastlyM $ do
+    client <- ask
+    let req = (f $ fastlyClientBaseRequest client) { method = "PUT" }
+    result <- liftIO $ do
+      m <- getGlobalManager
+      r <- httpLbs req m
+      pedanticDecode r
+    either throwError return result
+
+  fastlyDelete f = FastlyM $ do
+    client <- ask
+    let req = (f $ fastlyClientBaseRequest client) { method = "DELETE" }
+    result <- liftIO $ do
+      m <- getGlobalManager
+      r <- httpLbs req m
+      pedanticDecode r
+    either throwError return result
+
+  fastlyPatch f = FastlyM $ do
+    client <- ask
+    let req = (f $ fastlyClientBaseRequest client) { method = "PATCH" }
+    result <- liftIO $ do
+      m <- getGlobalManager
+      r <- httpLbs req m
+      pedanticDecode r
+    either throwError return result
+
+-- | Execute Fastly API operations with a client created from an API token.
 --
--- The request modifier function can be used to set the path, query parameters,
--- and additional headers.
+-- This is a convenience function that creates a client, executes the given
+-- action, and returns the result.
 --
 -- ==== __Examples__
 --
 -- @
--- services <- get client $ \\r -> r { path = "/service" }
+-- result <- runFastly "your-api-token" $ do
+--   services <- listServices
+--   return services
 -- @
-get :: FromJSON a => FastlyClient -> (Request -> Request) -> FastlyM a
-get c f = ExceptT $ do
-  m <- getGlobalManager
-  r <- httpLbs ((f $ fastlyClientBaseRequest c) { method = "GET" }) m
-  pedanticDecode r
+runFastly :: Text -> FastlyM a -> IO (Either FastlyError a)
+runFastly token action = do
+  client <- fastlyClient $ AuthToken token
+  runFastlyM client action
 
--- | Execute an HTTP POST request.
+-- | Deprecated: Use 'runFastly' instead.
 --
--- Use this for creating new resources.
-post :: FromJSON a => FastlyClient -> (Request -> Request) -> FastlyM a
-post c f = ExceptT $ do
-  m <- getGlobalManager
-  r <- httpLbs ((f $ fastlyClientBaseRequest c) { method = "POST" }) m
-  pedanticDecode r
-
--- | Execute an HTTP PUT request.
---
--- Use this for full updates of existing resources.
-put :: FromJSON a => FastlyClient -> (Request -> Request) -> FastlyM a
-put c f = ExceptT $ do
-  m <- getGlobalManager
-  r <- httpLbs ((f $ fastlyClientBaseRequest c) { method = "PUT" }) m
-  pedanticDecode r
-
--- | Execute an HTTP DELETE request.
---
--- Use this for deleting resources.
-delete :: FromJSON a => FastlyClient -> (Request -> Request) -> FastlyM a
-delete c f = ExceptT $ do
-  m <- getGlobalManager
-  r <- httpLbs ((f $ fastlyClientBaseRequest c) { method = "DELETE" }) m
-  pedanticDecode r
-
--- | Execute an HTTP PATCH request.
---
--- Use this for partial updates of existing resources.
-patch :: FromJSON a => FastlyClient -> (Request -> Request) -> FastlyM a
-patch c f = ExceptT $ do
-  m <- getGlobalManager
-  r <- httpLbs ((f $ fastlyClientBaseRequest c) { method = "PATCH" }) m
-  pedanticDecode r
+-- This function is kept for backward compatibility but may be removed
+-- in a future version.
+fastly :: Text -> (FastlyClient -> FastlyM a) -> IO (Either FastlyError a)
+fastly token f = do
+  client <- fastlyClient $ AuthToken token
+  runFastlyM client (f client)
+{-# DEPRECATED fastly "Use runFastly instead, which doesn't require passing the client" #-}

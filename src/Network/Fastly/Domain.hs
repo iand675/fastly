@@ -64,7 +64,7 @@ import Data.Text.Encoding (encodeUtf8)
 import Network.HTTP.Client (Request(..), urlEncodedBody, requestHeaders)
 import Network.HTTP.Types (urlEncode)
 
-import Network.Fastly.Client
+import Network.Fastly.Client (MonadFastly(..))
 import Network.Fastly.Types
 
 -- ---------------------------------------------------------------------------
@@ -81,11 +81,11 @@ import Network.Fastly.Types
 -- domains <- listDomains client serviceId versionNum
 -- mapM_ (\\d -> putStrLn $ domainName d) domains
 -- @
-listDomains :: FastlyClient
-            -> ServiceId
+listDomains :: MonadFastly m =>
+            ServiceId
             -> ServiceVersionNumber
-            -> FastlyM [Domain]
-listDomains c (ServiceId sid) (ServiceVersionNumber v) = get c $ \r ->
+            -> m [Domain]
+listDomains (ServiceId sid) (ServiceVersionNumber v) = fastlyGet $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/domain" }
 
 -- | Get details about a specific domain.
@@ -96,12 +96,12 @@ listDomains c (ServiceId sid) (ServiceVersionNumber v) = get c $ \r ->
 -- domain <- getDomain client serviceId versionNum "www.example.com"
 -- putStrLn $ "Domain comment: " ++ domainComment domain
 -- @
-getDomain :: FastlyClient
-          -> ServiceId
+getDomain :: MonadFastly m =>
+          ServiceId
           -> ServiceVersionNumber
           -> Text  -- ^ Domain name
-          -> FastlyM Domain
-getDomain c (ServiceId sid) (ServiceVersionNumber v) name = get c $ \r ->
+          -> m Domain
+getDomain (ServiceId sid) (ServiceVersionNumber v) name = fastlyGet $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/domain/" <> urlEncode False (encodeUtf8 name) }
 
 -- | Add a domain to a service version.
@@ -118,12 +118,12 @@ getDomain c (ServiceId sid) (ServiceVersionNumber v) name = get c $ \r ->
 -- domain <- createDomain client serviceId versionNum "www.example.com"
 -- putStrLn $ "Added domain: " ++ domainName domain
 -- @
-createDomain :: FastlyClient
-             -> ServiceId
+createDomain :: MonadFastly m =>
+             ServiceId
              -> ServiceVersionNumber
              -> Text  -- ^ Domain name (e.g., "www.example.com")
-             -> FastlyM Domain
-createDomain c (ServiceId sid) (ServiceVersionNumber v) name = post c $ \r -> urlEncodedBody [("name", encodeUtf8 name)] $
+             -> m Domain
+createDomain (ServiceId sid) (ServiceVersionNumber v) name = fastlyPost $ \r -> urlEncodedBody [("name", encodeUtf8 name)] $
   r { requestHeaders = ("Content-Type", "application/x-www-form-urlencoded") : requestHeaders r
     , path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/domain"
     }
@@ -138,13 +138,13 @@ createDomain c (ServiceId sid) (ServiceVersionNumber v) name = post c $ \r -> ur
 -- @
 -- domain <- updateDomain client serviceId versionNum "www.example.com" (Just "Production domain")
 -- @
-updateDomain :: FastlyClient
-             -> ServiceId
+updateDomain :: MonadFastly m =>
+             ServiceId
              -> ServiceVersionNumber
              -> Text  -- ^ Domain name
              -> Maybe Text  -- ^ New comment
-             -> FastlyM Domain
-updateDomain c (ServiceId sid) (ServiceVersionNumber v) name comment = put c $ \r -> urlEncodedBody params $
+             -> m Domain
+updateDomain (ServiceId sid) (ServiceVersionNumber v) name comment = fastlyPut $ \r -> urlEncodedBody params $
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/domain/" <> urlEncode False (encodeUtf8 name) }
   where
     params = maybe [] (\c' -> [("comment", encodeUtf8 c')]) comment
@@ -158,12 +158,12 @@ updateDomain c (ServiceId sid) (ServiceVersionNumber v) name comment = put c $ \
 -- @
 -- domain <- deleteDomain client serviceId versionNum "old.example.com"
 -- @
-deleteDomain :: FastlyClient
-             -> ServiceId
+deleteDomain :: MonadFastly m =>
+             ServiceId
              -> ServiceVersionNumber
              -> Text  -- ^ Domain name
-             -> FastlyM Domain
-deleteDomain c (ServiceId sid) (ServiceVersionNumber v) name = delete c $ \r ->
+             -> m Domain
+deleteDomain (ServiceId sid) (ServiceVersionNumber v) name = fastlyDelete $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/domain/" <> urlEncode False (encodeUtf8 name) }
 
 -- ---------------------------------------------------------------------------
@@ -187,12 +187,12 @@ deleteDomain c (ServiceId sid) (ServiceVersionNumber v) name = delete c $ \r ->
 --   then putStrLn "DNS is configured correctly"
 --   else putStrLn $ "Please configure DNS CNAME to: " ++ cname
 -- @
-checkDomainRecord :: FastlyClient
-                  -> ServiceId
+checkDomainRecord :: MonadFastly m =>
+                  ServiceId
                   -> ServiceVersionNumber
                   -> Text  -- ^ Domain name to check
-                  -> FastlyM (Domain, Text, Bool)
-checkDomainRecord c (ServiceId sid) (ServiceVersionNumber v) name = get c $ \r ->
+                  -> m (Domain, Text, Bool)
+checkDomainRecord (ServiceId sid) (ServiceVersionNumber v) name = fastlyGet $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/domain/" <> urlEncode False (encodeUtf8 name) <> "/check" }
 
 -- | Check DNS configuration for all domains in a service version.
@@ -208,9 +208,9 @@ checkDomainRecord c (ServiceId sid) (ServiceVersionNumber v) name = get c $ \r -
 --   putStrLn $ domainName domain ++ ": " ++ if isValid then "OK" else "needs CNAME to " ++ cname
 -- ) results
 -- @
-checkDomainRecords :: FastlyClient
-                   -> ServiceId
+checkDomainRecords :: MonadFastly m =>
+                   ServiceId
                    -> ServiceVersionNumber
-                   -> FastlyM [(Domain, Text, Bool)]
-checkDomainRecords c (ServiceId sid) (ServiceVersionNumber v) = get c $ \r ->
+                   -> m [(Domain, Text, Bool)]
+checkDomainRecords (ServiceId sid) (ServiceVersionNumber v) = fastlyGet $ \r ->
   r { path = "/service/" <> encodeUtf8 sid <> "/version/" <> BS.pack (show v) <> "/domain/check_all" }
