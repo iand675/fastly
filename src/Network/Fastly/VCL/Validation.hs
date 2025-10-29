@@ -319,11 +319,11 @@ validateStatementM (Log expr) = do
   validateExprM expr
   return False
 
-validateStatementM (Add ident expr) = do
+validateStatementM (AddHeader ident expr) = do
   validateExprM expr
   return False
 
-validateStatementM (Remove _) = return False
+validateStatementM (RemoveHeader _) = return False
 
 validateStatementM (Error _ _) = return True
 

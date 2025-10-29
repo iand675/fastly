@@ -62,7 +62,7 @@ variableValidationTests = describe "Variable validation" $ do
       Right _ -> expectationFailure "Should have failed validation"
 
   it "accepts declared local variable" $ do
-    let vclCode = unlines
+    let vclCode = T.unlines
           [ "sub vcl_recv {"
           , "  declare local var.foo STRING;"
           , "  set var.foo = \"test\";"
@@ -135,7 +135,7 @@ referenceValidationTests = describe "Reference validation" $ do
       Right _ -> expectationFailure "Should have failed validation"
 
   it "accepts call to defined subroutine" $ do
-    let vclCode = unlines
+    let vclCode = T.unlines
           [ "sub my_custom_sub {"
           , "  log \"custom\";"
           , "}"
@@ -148,7 +148,7 @@ referenceValidationTests = describe "Reference validation" $ do
       Right vcl -> validateVCL vcl `shouldSatisfy` isRight
 
   it "validates backend reference in director" $ do
-    let vclCode = unlines
+    let vclCode = T.unlines
           [ "backend my_backend {"
           , "  .host = \"example.com\";"
           , "}"
@@ -161,7 +161,7 @@ referenceValidationTests = describe "Reference validation" $ do
       Right vcl -> validateVCL vcl `shouldSatisfy` isRight
 
   it "detects undefined backend in director" $ do
-    let vclCode = unlines
+    let vclCode = T.unlines
           [ "director my_director random {"
           , "  .backend = undefined_backend;"
           , "}"
@@ -173,7 +173,7 @@ referenceValidationTests = describe "Reference validation" $ do
         Right _ -> expectationFailure "Should have failed validation"
 
   it "detects duplicate backend definitions" $ do
-    let vclCode = unlines
+    let vclCode = T.unlines
           [ "backend my_backend {"
           , "  .host = \"example1.com\";"
           , "}"
@@ -188,7 +188,7 @@ referenceValidationTests = describe "Reference validation" $ do
         Right _ -> expectationFailure "Should have failed validation"
 
   it "detects duplicate subroutine definitions" $ do
-    let vclCode = unlines
+    let vclCode = T.unlines
           [ "sub my_sub {"
           , "  log \"first\";"
           , "}"
@@ -209,7 +209,7 @@ referenceValidationTests = describe "Reference validation" $ do
 controlFlowTests :: Spec
 controlFlowTests = describe "Control flow validation" $ do
   it "detects unreachable code after return" $ do
-    let vclCode = unlines
+    let vclCode = T.unlines
           [ "sub vcl_recv {"
           , "  return(pass);"
           , "  set req.http.Host = \"example.com\";"
@@ -222,7 +222,7 @@ controlFlowTests = describe "Control flow validation" $ do
         Right _ -> expectationFailure "Should have failed validation"
 
   it "detects unreachable code after error" $ do
-    let vclCode = unlines
+    let vclCode = T.unlines
           [ "sub vcl_recv {"
           , "  error 404;"
           , "  log \"unreachable\";"
@@ -235,7 +235,7 @@ controlFlowTests = describe "Control flow validation" $ do
         Right _ -> expectationFailure "Should have failed validation"
 
   it "detects unreachable code after restart" $ do
-    let vclCode = unlines
+    let vclCode = T.unlines
           [ "sub vcl_recv {"
           , "  restart;"
           , "  log \"unreachable\";"
@@ -248,7 +248,7 @@ controlFlowTests = describe "Control flow validation" $ do
         Right _ -> expectationFailure "Should have failed validation"
 
   it "accepts reachable code after if without return" $ do
-    let vclCode = unlines
+    let vclCode = T.unlines
           [ "sub vcl_recv {"
           , "  if (req.http.Host == \"example.com\") {"
           , "    set req.http.X-Custom = \"value\";"

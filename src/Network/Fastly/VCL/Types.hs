@@ -107,7 +107,7 @@ data SubroutineName
   | VclDeliver     -- ^ vcl_deliver - handles delivery to client
   | VclLog         -- ^ vcl_log - handles logging
   | CustomSub Text -- ^ User-defined subroutine
-  deriving (Show, Eq, Generic)
+  deriving (Show, Eq, Ord, Generic)
 
 -- ---------------------------------------------------------------------------
 -- Statements
@@ -129,9 +129,9 @@ data Statement
   -- ^ call subroutine;
   | Log Expr
   -- ^ log expr;
-  | Add Identifier Expr
+  | AddHeader Identifier Expr
   -- ^ add header = value;
-  | Remove Identifier
+  | RemoveHeader Identifier
   -- ^ remove header;
   | Error Int64 (Maybe Text)
   -- ^ error 404 or error 404 "Not Found";
@@ -224,7 +224,7 @@ data Literal
 
 -- | An identifier (simple name).
 newtype Identifier = Identifier Text
-  deriving (Show, Eq, Generic)
+  deriving (Show, Eq, Ord, Generic)
 
 -- | A variable, which can be a simple identifier or a dotted path.
 --

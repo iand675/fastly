@@ -24,11 +24,13 @@ module Network.Fastly.VCL.Parser
   ) where
 
 import Control.Monad (void)
+import Control.Monad.Combinators.Expr (Operator(..), makeExprParser)
 import Data.Char (isAlphaNum, isDigit)
+import Data.Int (Int64)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Void (Void)
-import Text.Megaparsec
+import Text.Megaparsec hiding (ParseError)
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
@@ -172,8 +174,8 @@ statementParser = choice
   , returnParser
   , callParser
   , logParser
-  , addParser
-  , removeParser
+  , addHeaderParser
+  , removeHeaderParser
   , errorParser
   , restartParser
   , syntheticParser
@@ -203,11 +205,14 @@ declareParser :: Parser Statement
 declareParser = do
   keyword "declare"
   keyword "local"
-  ident <- identifierParser
+  -- Parse "var.foo" and extract just "foo"
+  _ <- string "var"
+  _ <- char '.'
+  identName <- lexeme identifierTextNoCheck
   typ <- vclTypeParser
   init <- optional (symbol "=" *> exprParser)
   semi
-  return $ Declare ident typ init
+  return $ Declare (Identifier identName) typ init
 
 -- | Parse an if statement.
 ifParser :: Parser Statement
@@ -252,22 +257,22 @@ logParser = do
   return $ Log expr
 
 -- | Parse an add statement.
-addParser :: Parser Statement
-addParser = do
+addHeaderParser :: Parser Statement
+addHeaderParser = do
   keyword "add"
   ident <- identifierParser
   symbol "="
   expr <- exprParser
   semi
-  return $ Add ident expr
+  return $ AddHeader ident expr
 
 -- | Parse a remove statement.
-removeParser :: Parser Statement
-removeParser = do
+removeHeaderParser :: Parser Statement
+removeHeaderParser = do
   keyword "remove"
   ident <- identifierParser
   semi
-  return $ Remove ident
+  return $ RemoveHeader ident
 
 -- | Parse an error statement.
 errorParser :: Parser Statement
@@ -446,10 +451,17 @@ identifierText = lexeme $ do
     then fail $ "Reserved word: " ++ T.unpack ident
     else return ident
 
+-- | Parse identifier text without reserved word check (for use in variables).
+identifierTextNoCheck :: Parser Text
+identifierTextNoCheck = do
+  first <- letterChar <|> char '_'
+  rest <- many (alphaNumChar <|> char '_' <|> char '-')
+  return $ T.pack (first : rest)
+
 -- | Parse a variable (possibly dotted).
 variableParser :: Parser Variable
 variableParser = lexeme $ do
-  parts <- identifierText `sepBy1` char '.'
+  parts <- identifierTextNoCheck `sepBy1` char '.'
   return $ Variable parts
 
 -- ---------------------------------------------------------------------------
@@ -468,7 +480,7 @@ aclParser = do
 aclEntryParser :: Parser ACLEntry
 aclEntryParser = do
   negated <- (True <$ symbol "!") <|> return False
-  ip <- lexeme $ T.pack <$> some (alphaNumChar <|> oneOf [':', '.', '/'])
+  ip <- lexeme $ quotes (T.pack <$> some (alphaNumChar <|> oneOf [':', '.', '/']))
   semi
   return $ ACLEntry negated ip
 

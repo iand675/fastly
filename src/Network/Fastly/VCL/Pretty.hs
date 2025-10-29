@@ -148,10 +148,10 @@ prettyStatement (Call name) =
 prettyStatement (Log expr) =
   "log" <+> prettyExpr expr <> semi
 
-prettyStatement (Add ident expr) =
+prettyStatement (AddHeader ident expr) =
   "add" <+> prettyIdentifier ident <+> equals <+> prettyExpr expr <> semi
 
-prettyStatement (Remove ident) =
+prettyStatement (RemoveHeader ident) =
   "remove" <+> prettyIdentifier ident <> semi
 
 prettyStatement (Error code msg) =

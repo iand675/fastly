@@ -110,7 +110,7 @@ parserTests = do
         _ -> expectationFailure "Failed to parse empty subroutine"
 
     it "parses subroutine with statements" $ do
-      let vclCode = unlines
+      let vclCode = T.unlines
             [ "sub vcl_recv {"
             , "  set req.http.Host = \"example.com\";"
             , "  return(pass);"
@@ -129,7 +129,7 @@ parserTests = do
 
   describe "Backend parsing" $ do
     it "parses basic backend" $ do
-      let vclCode = unlines
+      let vclCode = T.unlines
             [ "backend my_backend {"
             , "  .host = \"example.com\";"
             , "  .port = 443;"
@@ -142,7 +142,7 @@ parserTests = do
 
   describe "ACL parsing" $ do
     it "parses ACL with entries" $ do
-      let vclCode = unlines
+      let vclCode = T.unlines
             [ "acl allowed_ips {"
             , "  \"192.168.1.0/24\";"
             , "  !\"192.168.1.100\";"
