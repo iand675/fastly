@@ -2,18 +2,8 @@ name:                fastly
 version:             0.2.0.0
 synopsis:            Comprehensive Haskell client library for the Fastly CDN API
 description:
-  A type-safe, comprehensive Haskell client for the Fastly CDN API.
-  .
-  Supports GHC 9.10+ and provides idiomatic Haskell interfaces for:
-  .
-  * Service and version management
-  * Cache purging (URL, surrogate key, and purge-all operations)
-  * Edge dictionaries with batch operations
-  * Domain management and DNS verification
-  * Gzip compression configuration
-  * And more...
-  .
-  See the "Network.Fastly" module documentation for detailed usage examples.
+  Type-safe Haskell client for the Fastly CDN API with comprehensive
+  coverage of services, purging, dictionaries, domains, and configuration.
 homepage:            https://github.com/iand675/fastly#readme
 license:             BSD3
 license-file:        LICENSE
