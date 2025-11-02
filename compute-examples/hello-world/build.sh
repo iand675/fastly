@@ -55,13 +55,26 @@ if [ -z "$WASM_FILE" ]; then
 fi
 cp "$WASM_FILE" compute-examples/hello-world/bin/main.wasm
 
+echo -e "${YELLOW}Step 5: Package with Fastly metadata${NC}"
+# Use fastly compute pack to create the deployable package
+# This adds the necessary Fastly metadata to the Wasm binary
+if command -v fastly &> /dev/null; then
+    fastly compute pack --wasm-binary compute-examples/hello-world/bin/main.wasm
+    echo -e "${GREEN}✓ Package created!${NC}"
+else
+    echo -e "${YELLOW}⚠ Fastly CLI not found - skipping packaging${NC}"
+    echo "  Install with: brew install fastly/tap/fastly"
+    echo "  The .wasm file is ready, but you'll need to package it later"
+fi
+
 echo -e "${GREEN}✓ Build successful!${NC}"
 echo ""
 echo "Output: bin/main.wasm"
 echo ""
 echo "Next steps:"
-echo "  1. Test locally with Viceroy: viceroy bin/main.wasm"
-echo "  2. Create a Fastly service and deploy the .wasm file"
+echo "  1. Test locally: fastly compute serve"
+echo "     Or with Viceroy directly: viceroy bin/main.wasm"
+echo "  2. Deploy: fastly compute deploy"
 echo ""
 echo "File size:"
-ls -lh bin/main.wasm
+ls -lh compute-examples/hello-world/bin/main.wasm

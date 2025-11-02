@@ -319,11 +319,26 @@ Contributions welcome! This library needs:
 
 BSD-3-Clause
 
+## Building Custom SDKs
+
+This library is built using Fastly's Compute hostcalls, which are defined as `.witx` files in the Viceroy repository:
+
+**Hostcalls Location**: https://github.com/fastly/Viceroy/tree/main/wasm_abi/compute-at-edge-abi
+
+The `.witx` files define the WebAssembly interface for:
+- `fastly_http_req` - HTTP request operations
+- `fastly_http_resp` - HTTP response operations
+- `fastly_http_body` - Body read/write operations
+- Additional modules for KV store, backends, etc.
+
+Our FFI bindings in `Fastly.Compute.FFI` provide Haskell interfaces to these hostcalls.
+
 ## Resources
 
 - [Fastly Compute Documentation](https://developer.fastly.com/learning/compute/)
 - [GHC WebAssembly Guide](https://ghc.gitlab.haskell.org/ghc/doc/users_guide/wasm.html)
-- [Compute ABI Specification](https://github.com/fastly/compute-at-edge-abi)
+- [Compute Hostcalls (WITX)](https://github.com/fastly/Viceroy/tree/main/wasm_abi/compute-at-edge-abi)
+- [Compute ABI Repository](https://github.com/fastly/compute-at-edge-abi)
 - [Example Applications](../../compute-examples/)
 
 ## See Also

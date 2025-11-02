@@ -2,7 +2,7 @@
 # This file configures how your Compute service is deployed and run
 
 # Manifest version (required)
-manifest_version = 2
+manifest_version = 3
 
 # Service name
 name = "fastly-compute-hello-haskell"
@@ -18,8 +18,12 @@ language = "other"
 
 # Build configuration
 [scripts]
-  # Build command - runs before deployment
+  # Build command - compiles Haskell to WebAssembly
+  # The build.sh script handles both compilation and packaging
   build = "./build.sh"
+
+# Post-build: The build script runs 'fastly compute pack' automatically
+# to package the Wasm binary with Fastly metadata
 
 # Local server configuration for testing with Viceroy
 [local_server]

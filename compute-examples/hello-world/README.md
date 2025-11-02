@@ -158,25 +158,34 @@ You should see the HTML "Hello, World!" response!
 
 ## Deploying to Fastly
 
-### 1. Create a Compute Service
+### Quick Deployment
 
 ```bash
-# Login to Fastly
-fastly auth token
-
-# Create a new service
-fastly compute init
-```
-
-### 2. Deploy
-
-```bash
-# Deploy the service
+# First time: creates service and deploys
 fastly compute publish
 
-# Your service will be available at:
-# https://your-service.edgecompute.app
+# Subsequent deployments
+fastly compute deploy
 ```
+
+Your service will be available at: `https://your-service.edgecompute.app`
+
+### Testing Before Deploy
+
+```bash
+# Test locally with Fastly CLI
+fastly compute serve
+
+# Or test with Viceroy directly
+viceroy bin/main.wasm
+```
+
+**See [DEPLOYMENT.md](./DEPLOYMENT.md) for complete deployment guide** including:
+- Authentication setup
+- CI/CD integration
+- Service management
+- Troubleshooting
+- Advanced workflows
 
 ## Project Structure
 
