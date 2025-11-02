@@ -1,0 +1,63 @@
+cabal-version:       2.4
+name:                fastly-compute
+version:             0.1.0.0
+synopsis:            Haskell library for Fastly Compute@Edge applications
+description:
+  A Haskell library for building Fastly Compute@Edge applications compiled
+  to WebAssembly using GHC's wasm32-wasi backend.
+  .
+  This library provides:
+  .
+  * FFI bindings to Fastly Compute hostcalls
+  * High-level API for HTTP request/response handling
+  * Type-safe interfaces for edge computing
+  .
+  Use this library to write Compute@Edge applications in Haskell that run
+  at Fastly's global edge locations with sub-millisecond cold starts.
+
+homepage:            https://github.com/iand675/fastly#readme
+license:             BSD-3-Clause
+license-file:        LICENSE
+author:              Ian Duncan
+maintainer:          ian@iankduncan.com
+copyright:           2025 Ian Duncan
+category:            Web, Network, Cloud, Edge Computing
+build-type:          Simple
+extra-source-files:  README.md
+                   , include/*.h
+tested-with:         GHC == 9.6.1
+                   , GHC == 9.8.1
+                   , GHC == 9.10.1
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Fastly.Compute
+                     , Fastly.Compute.FFI
+
+  -- WebAssembly-specific configuration
+  include-dirs:        include
+
+  build-depends:       base >= 4.14 && < 5
+                     , bytestring >= 0.10
+
+  default-language:    Haskell2010
+
+  ghc-options:        -Wall
+                      -Wcompat
+                      -Widentities
+                      -Wincomplete-record-updates
+                      -Wincomplete-uni-patterns
+                      -Wmissing-home-modules
+                      -Wpartial-fields
+                      -Wredundant-constraints
+
+  -- Optimization flags for WebAssembly
+  if impl(ghc >= 9.0)
+    ghc-options:      -O2
+                      -fexcess-precision
+                      -optc-O3
+
+source-repository head
+  type:     git
+  location: https://github.com/iand675/fastly
+  subdir:   packages/fastly-compute

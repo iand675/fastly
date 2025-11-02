@@ -14,20 +14,14 @@ copyright:           2025 Ian Duncan
 category:            Web
 build-type:          Simple
 extra-source-files:  README.md
-                   , include/*.h
 
 executable fastly-compute-hello
   main-is:             Main.hs
-  other-modules:       Fastly.Compute
-                     , Fastly.Compute.FFI
   hs-source-dirs:      src
-
-  -- WebAssembly-specific configuration
-  -- These settings are important for wasm32-wasi compilation
-  include-dirs:        include
 
   build-depends:       base >= 4.14 && < 5
                      , bytestring >= 0.10
+                     , fastly-compute
 
   default-language:    Haskell2010
 

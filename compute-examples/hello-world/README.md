@@ -161,21 +161,26 @@ fastly compute publish
 ```
 .
 ├── src/
-│   ├── Main.hs                  # Application entry point
-│   ├── Fastly/
-│   │   ├── Compute.hs           # High-level API
-│   │   └── Compute/
-│   │       └── FFI.hs           # Low-level FFI bindings
-├── include/
-│   ├── fastly_req.h             # Request hostcall declarations
-│   ├── fastly_resp.h            # Response hostcall declarations
-│   └── fastly_body.h            # Body hostcall declarations
+│   └── Main.hs                  # Application entry point
 ├── bin/
 │   └── main.wasm                # Compiled WebAssembly module
 ├── fastly-compute-hello.cabal   # Cabal build configuration
 ├── fastly.toml                  # Fastly service configuration
 ├── build.sh                     # Build script
 └── README.md                    # This file
+
+# The Compute library is in the fastly-compute package:
+../../packages/fastly-compute/
+├── src/
+│   └── Fastly/
+│       ├── Compute.hs           # High-level API
+│       └── Compute/
+│           └── FFI.hs           # Low-level FFI bindings
+├── include/
+│   ├── fastly_req.h             # Request hostcall declarations
+│   ├── fastly_resp.h            # Response hostcall declarations
+│   └── fastly_body.h            # Body hostcall declarations
+└── fastly-compute.cabal         # Library package configuration
 ```
 
 ## How It Works

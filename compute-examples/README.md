@@ -47,9 +47,9 @@ A minimal "Hello, World!" application demonstrating:
 
 ```bash
 # 1. Set up GHC WebAssembly toolchain (see hello-world/README.md)
-cd hello-world
 
 # 2. Build the example
+cd hello-world
 ./build.sh
 
 # 3. Test locally
@@ -57,6 +57,37 @@ viceroy bin/main.wasm
 
 # 4. Deploy to Fastly (requires Fastly account)
 fastly compute publish
+```
+
+## Using the Library in Your Own Project
+
+Add to your `cabal.project`:
+
+```cabal
+packages:
+  .
+
+source-repository-package
+  type: git
+  location: https://github.com/iand675/fastly
+  subdir: packages/fastly-compute
+```
+
+Or use it locally:
+
+```cabal
+packages:
+  .
+  path/to/fastly/packages/fastly-compute
+```
+
+Then in your `.cabal` file:
+
+```cabal
+build-depends:
+  base,
+  bytestring,
+  fastly-compute
 ```
 
 ## Architecture Overview
@@ -109,22 +140,25 @@ fastly compute publish
 
 ## Components
 
-This toolchain consists of:
+### 1. The `fastly-compute` Library
 
-### 1. FFI Bindings (`Fastly.Compute.FFI`)
+Located at `../packages/fastly-compute/`, this is a proper Haskell package that provides:
 
-Low-level bindings to Fastly's WebAssembly hostcalls:
+**FFI Bindings** (`Fastly.Compute.FFI`):
+- Low-level bindings to Fastly's WebAssembly hostcalls
 - HTTP request/response handling
 - Body read/write operations
 - Header manipulation
-- Backend requests
-- KV Store access
-- And more...
+- C header files for FFI declarations
 
-### 2. High-Level API (`Fastly.Compute`)
+**High-Level API** (`Fastly.Compute`):
+- Type-safe Request and Response types
+- Simple `runCompute` entry point
+- Automatic error handling
 
-Type-safe, idiomatic Haskell interface:
 ```haskell
+import Fastly.Compute
+
 main :: IO ()
 main = runCompute $ \req -> do
   return $ Response
@@ -134,19 +168,15 @@ main = runCompute $ \req -> do
     }
 ```
 
+### 2. Example Applications
+
+The `hello-world/` directory contains a complete example that uses the `fastly-compute` library.
+
 ### 3. Build Tooling
 
-- Cabal configuration for wasm32-wasi
+- Multi-package `cabal.project` configuration
 - Build scripts for WebAssembly compilation
 - Development and deployment workflows
-
-### 4. C Headers
-
-Header files declaring Fastly hostcalls for FFI:
-- `fastly_req.h` - Request operations
-- `fastly_resp.h` - Response operations
-- `fastly_body.h` - Body operations
-- Additional headers for other features
 
 ## Requirements
 

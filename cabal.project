@@ -1,0 +1,27 @@
+-- Fastly Haskell Libraries
+-- Multi-package project configuration
+
+packages:
+  packages/fastly
+  packages/fastly-compute
+  compute-examples/hello-world
+
+-- Common settings for all packages
+with-compiler: ghc
+
+-- Source repository packages
+-- (none currently)
+
+-- Optimization settings
+optimization: 2
+
+-- Documentation
+documentation: False
+
+-- Tests
+tests: True
+benchmarks: False
+
+-- Index state for reproducible builds
+-- Uncomment and set when ready for release
+-- index-state: 2025-01-01T00:00:00Z

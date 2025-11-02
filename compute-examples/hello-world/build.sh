@@ -31,26 +31,29 @@ if ! command -v wasm32-wasi-ghc &> /dev/null; then
 fi
 
 echo -e "${YELLOW}Step 1: Clean previous build${NC}"
-rm -rf dist-newstyle
+rm -rf ../../dist-newstyle
 rm -f bin/main.wasm
 
 echo -e "${YELLOW}Step 2: Configure with wasm32-wasi-ghc${NC}"
-wasm32-wasi-cabal configure \
+# Build from the repository root to use cabal.project
+cd ../..
+wasm32-wasi-cabal configure fastly-compute-hello \
     --with-compiler=wasm32-wasi-ghc \
     --with-hc-pkg=wasm32-wasi-ghc-pkg \
     --with-hsc2hs=wasm32-wasi-hsc2hs
 
 echo -e "${YELLOW}Step 3: Build the WebAssembly module${NC}"
-wasm32-wasi-cabal build -O2
+wasm32-wasi-cabal build fastly-compute-hello -O2
+cd compute-examples/hello-world
 
 echo -e "${YELLOW}Step 4: Copy the .wasm file${NC}"
-mkdir -p bin
-WASM_FILE=$(find dist-newstyle -name "fastly-compute-hello" -type f | grep -v ".hi\|.o")
+mkdir -p compute-examples/hello-world/bin
+WASM_FILE=$(find ../../dist-newstyle -name "fastly-compute-hello" -type f | grep -v ".hi\|.o")
 if [ -z "$WASM_FILE" ]; then
     echo -e "${RED}Error: Could not find built .wasm file${NC}"
     exit 1
 fi
-cp "$WASM_FILE" bin/main.wasm
+cp "$WASM_FILE" compute-examples/hello-world/bin/main.wasm
 
 echo -e "${GREEN}✓ Build successful!${NC}"
 echo ""

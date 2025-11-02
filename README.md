@@ -65,18 +65,33 @@ main = runCompute $ \req -> do
 
 See the [Compute@Edge README](./compute-examples/README.md) for setup and examples.
 
+## Project Structure
+
+This is a multi-package repository:
+
+```
+fastly/
+├── packages/
+│   ├── fastly/              # API client library
+│   └── fastly-compute/      # Compute@Edge library
+├── compute-examples/
+│   └── hello-world/         # Example Compute application
+├── cabal.project            # Multi-package configuration
+└── stack.yaml               # Stack multi-package configuration
+```
+
 ## Quick Start
 
 ### For API Management (Control Plane)
 
 ```bash
 # Using stack
-stack build
-stack ghci
+stack build fastly
+stack ghci fastly
 
 # Using cabal
-cabal build
-cabal repl
+cabal build fastly
+cabal repl fastly
 ```
 
 ### For Edge Computing (Data Plane)
@@ -173,13 +188,31 @@ Or install directly:
 cabal install fastly
 ```
 
-### Compute@Edge
+### Compute@Edge Library
 
-The Compute@Edge support is currently provided as example code and libraries in the `compute-examples/` directory. Copy the modules you need into your project, or use them as a starting point for your own implementation.
+Add to your `cabal.project`:
+
+```cabal
+packages:
+  .
+  path/to/fastly-compute
+```
+
+Or use as a git dependency:
+
+```cabal
+source-repository-package
+  type: git
+  location: https://github.com/iand675/fastly
+  tag: <version>
+  subdir: packages/fastly-compute
+```
 
 ## Documentation
 
-- [API Client Documentation](./src/Network/Fastly.hs) - Control plane API reference
+- [API Client Documentation](./packages/fastly/src/Network/Fastly.hs) - Control plane API reference
+- [API Client Package](./packages/fastly/) - Full API client package
+- [Compute@Edge Library](./packages/fastly-compute/) - Compute library package
 - [Compute@Edge Guide](./compute-examples/README.md) - Data plane development guide
 - [Hello World Example](./compute-examples/hello-world/README.md) - Getting started with Compute
 
