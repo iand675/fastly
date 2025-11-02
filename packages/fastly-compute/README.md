@@ -15,7 +15,26 @@ This library provides everything you need to write type-safe Haskell application
 
 ### Prerequisites
 
-You need GHC with WebAssembly support (9.6+). The easiest setup:
+#### Option 1: Using Nix (Recommended) 🎯
+
+The easiest way to get all tools:
+
+```bash
+# From the repository root
+nix develop
+
+# Or just for Compute development
+nix develop .#compute
+
+# Everything is ready!
+wasm32-wasi-ghc --version
+```
+
+See the [Nix Setup Guide](../../nix/README.md) for details.
+
+#### Option 2: Manual Installation
+
+Install GHC with WebAssembly support (9.6+):
 
 ```bash
 # Install ghc-wasm toolchain

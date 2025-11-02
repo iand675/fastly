@@ -180,12 +180,28 @@ The `hello-world/` directory contains a complete example that uses the `fastly-c
 
 ## Requirements
 
+### Quick Start with Nix 🎯
+
+```bash
+# From repository root
+nix develop
+
+# Everything is ready!
+wasm32-wasi-ghc --version
+fastly version
+viceroy --version
+```
+
+See the [Nix Setup Guide](../nix/README.md) for details.
+
+### Manual Setup
+
 - **GHC 9.6+** with WebAssembly backend support
 - **Cabal 3.8+**
 - **Fastly CLI** (for deployment)
 - **Viceroy** (for local testing)
 
-See [hello-world/README.md](./hello-world/README.md) for detailed setup instructions.
+See [hello-world/README.md](./hello-world/README.md) for detailed manual setup instructions.
 
 ## Toolchain Setup Summary
 

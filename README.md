@@ -82,7 +82,26 @@ fastly/
 
 ## Quick Start
 
-### For API Management (Control Plane)
+### Option 1: With Nix (Easiest) 🎯
+
+```bash
+# Enter development environment
+nix develop
+
+# Build API client
+cabal build fastly
+
+# Build Compute example
+cd compute-examples/hello-world
+./build.sh
+viceroy bin/main.wasm
+```
+
+See [Nix Setup Guide](./nix/README.md) for more options.
+
+### Option 2: Manual Setup
+
+#### For API Management (Control Plane)
 
 ```bash
 # Using stack
@@ -94,7 +113,7 @@ cabal build fastly
 cabal repl fastly
 ```
 
-### For Edge Computing (Data Plane)
+#### For Edge Computing (Data Plane)
 
 ```bash
 cd compute-examples/hello-world
@@ -156,20 +175,39 @@ fastly compute publish
 
 ## Requirements
 
-### API Client
+### Quick Start with Nix (Recommended) 🎯
+
+The easiest way to get started is with Nix, which provides all tools automatically:
+
+```bash
+# Using Flakes (recommended)
+nix develop
+
+# Or with direnv (auto-loads when you cd here)
+direnv allow
+
+# Traditional Nix
+nix-shell
+```
+
+See [Nix Setup Guide](./nix/README.md) for details.
+
+### Manual Setup
+
+#### API Client
 
 - GHC 9.10+ (tested with 9.10.1)
 - Cabal 3.0+ or Stack
 - Dependencies: aeson, http-client, bytestring, etc.
 
-### Compute@Edge
+#### Compute@Edge
 
 - GHC 9.6+ with WebAssembly backend
 - wasm32-wasi toolchain
 - Fastly CLI
 - Viceroy (for local testing)
 
-See [Compute@Edge setup guide](./compute-examples/hello-world/README.md) for detailed instructions.
+See [Compute@Edge setup guide](./compute-examples/hello-world/README.md) for detailed manual setup.
 
 ## Installation
 

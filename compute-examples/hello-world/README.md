@@ -43,7 +43,29 @@ This project demonstrates:
 
 ## Prerequisites
 
-### 1. Install GHC with WebAssembly Support
+### Option 1: Using Nix (Easiest) 🎯
+
+From the repository root:
+
+```bash
+# Enter development environment (includes everything!)
+nix develop
+
+# Verify tools are available
+wasm32-wasi-ghc --version
+fastly version
+viceroy --version
+
+# You're ready to build!
+cd compute-examples/hello-world
+./build.sh
+```
+
+See the [Nix Setup Guide](../../nix/README.md) for details.
+
+### Option 2: Manual Installation
+
+#### 1. Install GHC with WebAssembly Support
 
 GHC's WebAssembly backend is available from GHC 9.6+. The easiest way to set it up is using `ghc-wasm-meta`:
 
@@ -64,7 +86,7 @@ This provides:
 - `wasm32-wasi-cabal` - Cabal build tool for WebAssembly
 - `wasm32-wasi-ghc-pkg` - Package manager for WebAssembly packages
 
-### 2. Install Fastly CLI and Viceroy
+#### 2. Install Fastly CLI and Viceroy
 
 ```bash
 # Install Fastly CLI
@@ -77,7 +99,7 @@ npm install -g @fastly/cli
 cargo install viceroy
 ```
 
-### 3. Verify Installation
+#### 3. Verify Installation
 
 ```bash
 # Check that wasm32-wasi-ghc is available

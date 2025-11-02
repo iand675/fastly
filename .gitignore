@@ -1,5 +1,42 @@
-/.stack-work/
-.envrc
+# Haskell
+dist/
+dist-*/
 dist-newstyle/
+.stack-work/
+*.hi
+*.o
+*.prof
+*.aux
+*.hp
+*.eventlog
+.HTF/
+
+# Cabal
+cabal.project.local
+cabal.project.local~
+.ghc.environment.*
+
+# Stack
 stack.yaml.lock
 *.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Nix
+result
+result-*
+.direnv/
+# Note: .envrc is tracked, but .direnv/ is not
+
+# WebAssembly build artifacts
+*.wasm
+bin/
+
+# Fastly
+fastly.toml.lock
