@@ -1,0 +1,30 @@
+# Fastly Compute@Edge service configuration
+# This file configures how your Compute service is deployed and run
+
+# Manifest version (required)
+manifest_version = 2
+
+# Service name
+name = "fastly-compute-hello-haskell"
+
+# Description
+description = "Hello World Haskell application on Fastly Compute@Edge"
+
+# Authors
+authors = ["Ian Duncan <ian@iankduncan.com>"]
+
+# Language (Wasm/WASI is language-agnostic)
+language = "other"
+
+# Build configuration
+[scripts]
+  # Build command - runs before deployment
+  build = "./build.sh"
+
+# Local server configuration for testing with Viceroy
+[local_server]
+  # No special configuration needed for basic HTTP handling
+
+# Setup configuration
+[setup]
+  # No setup needed
